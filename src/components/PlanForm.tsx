@@ -168,6 +168,14 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
           <div className="mt-3 flex flex-col gap-2">
             {bookings.map((b, bi) => {
               const open = openSet.has(bi)
+              const f = b.fields
+              const depTime = f['出发时间'] || f['发车时间'] || ''
+              const date = f['日期'] || f['出发日期'] || ''
+              const sub = depTime
+                ? `${date} ${depTime} 出发`.trim()
+                : f['入住']
+                  ? `入住 ${f['入住']}${f['离店'] ? ' · 离店 ' + f['离店'] : ''}`
+                  : date || ''
               return (
                 <div key={bi} style={{ border: '1px solid var(--color-line)', borderRadius: '10px', padding: '9px 12px' }}>
                   <div className="flex items-center gap-2">
@@ -193,6 +201,9 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
                       删
                     </button>
                   </div>
+                  {!open && sub && (
+                    <div style={{ fontSize: '12px', color: 'var(--color-qing)', marginTop: '4px', paddingLeft: '2px' }}>{sub}</div>
+                  )}
                   {open &&
                     Object.entries(b.fields).map(([k, v]) => (
                       <div key={k} className="flex items-center gap-2 mt-1.5">
