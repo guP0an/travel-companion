@@ -32,6 +32,18 @@
 - **声音**：管家用 **lord 本人音色克隆**（本人授权）。Phase 2/3、需小程序/App。
 - **MVP 纪律**：Phase 1 只交付「行前 ①」并打磨到有灵魂，不范围爆炸。
 
+## 素材 / 资源存放（在哪儿放图标、头像、照片）
+
+| 类型 | 存放位置 | 访问方式 |
+|------|----------|----------|
+| 吉祥物丸丸 | `public/mascot.svg` | `/mascot.svg` |
+| **可选用户头像集** | `public/avatars/avatar-1.svg … avatar-6.svg` | `/avatars/avatar-1.svg`（用户可挑选替换，picker 待做） |
+| 图标源文件 | `public/icons/`（预留） | `/icons/...` |
+| UI 内嵌彩色图标（铜钱/卷轴/毛笔，随主题适配） | `src/components/Icons.tsx`（React 组件） | 代码引用 |
+| **用户上传照片（打卡）** | 将来用 **Supabase Storage**（对象存储桶），不放代码仓库 | 上传后拿 URL |
+
+> 原则：**静态品牌素材**（图标/头像/吉祥物）放 `public/`；**带主题色、需明暗适配的 UI 图标**做成 `Icons.tsx` 组件；**用户产生的内容**（照片）放 Supabase Storage。
+
 ## 文档地图
 
 | 文档 | 内容 |

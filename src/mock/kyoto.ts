@@ -138,5 +138,5 @@ export const kyotoMock: Itinerary = {
   ],
   closing:
     '两天排得不紧，剩下的力气留给你随心逛。要我换口味或加一天，随时说。',
-  disclaimer: '行程由 AI 生成，景点营业时间/价格请出行前再核实一次。',
+  disclaimer: '营业时间和价格可能有变，出行前丸丸建议你再核实一次哦～',
 }
