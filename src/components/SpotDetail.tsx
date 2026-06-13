@@ -1,23 +1,18 @@
 import { useEffect, useState } from 'react'
-import { getCheckin, saveCheckin, countCheckins } from '../lib/db'
+import { getCheckin, saveCheckin, countCheckins, uploadPhotos } from '../lib/db'
+import { badge } from '../lib/growth'
 
-// 打卡次数 → 称号
-function title(n: number): string {
-  if (n >= 50) return '风物志 · 行脚僧'
-  if (n >= 20) return '资深旅人'
-  if (n >= 10) return '本地通'
-  if (n >= 5) return '常客'
-  return ''
-}
-
-export default function SpotDetail({ name, city, onClose }: { name: string; city: string; onClose: () => void }) {
+export default function SpotDetail({ name, city, onClose, onSaved }: { name: string; city: string; onClose: () => void; onSaved?: () => void }) {
   const spot = (city ? city + ' ' : '') + name
   const mapUrl = `https://uri.amap.com/search?keyword=${encodeURIComponent(spot)}`
   const [rating, setRating] = useState(0)
   const [review, setReview] = useState('')
   const [checked, setChecked] = useState(false)
-  const [photos, setPhotos] = useState<string[]>([]) // 本地预览（持久化待接 Supabase Storage）
+  const [photos, setPhotos] = useState<string[]>([]) // 云端已存的照片 URL
+  const [newFiles, setNewFiles] = useState<File[]>([]) // 本次新选、尚未上传
+  const [previews, setPreviews] = useState<string[]>([]) // 新选照片的本地预览
   const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
   const [total, setTotal] = useState(0) // 已打卡的地方总数
 
   useEffect(() => {
@@ -27,6 +22,7 @@ export default function SpotDetail({ name, city, onClose }: { name: string; city
           setRating(c.rating || 0)
           setReview(c.review || '')
           setChecked(!!c.checked_at)
+          setPhotos(c.photos || [])
         }
       })
       .catch(() => {})
@@ -35,23 +31,38 @@ export default function SpotDetail({ name, city, onClose }: { name: string; city
 
   const onPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fs = Array.from(e.target.files || [])
-    setPhotos((p) => [...p, ...fs.map((f) => URL.createObjectURL(f))])
+    setNewFiles((p) => [...p, ...fs])
+    setPreviews((p) => [...p, ...fs.map((f) => URL.createObjectURL(f))])
     e.target.value = ''
   }
 
   const doCheckin = async () => {
     setMsg('')
+    setBusy(true)
     const wasNew = !checked
     try {
-      await saveCheckin({ spot, rating: rating || null, review: review.trim(), checked: true })
+      let allPhotos = photos
+      if (newFiles.length) {
+        const uploaded = await uploadPhotos(newFiles)
+        allPhotos = [...photos, ...uploaded]
+        setPhotos(allPhotos)
+        setNewFiles([])
+        setPreviews([])
+      }
+      await saveCheckin({ spot, rating: rating || null, review: review.trim(), checked: true, photos: allPhotos })
       setChecked(true)
       const n = wasNew ? total + 1 : total
       setTotal(n)
-      const t = title(n)
+      const t = badge(n)
       setMsg(wasNew ? `打卡成功！这是你打卡的第 ${n} 个地方${t ? ` · ${t}` : ''}` : '已更新')
+      onSaved?.()
     } catch (e) {
       const m = (e as Error).message
-      setMsg(m.includes('checkins') || m.includes('schema cache') ? '打卡功能还没启用：先在 Supabase 跑 checkins 建表 SQL' : m)
+      if (m.includes('checkins') || m.includes('schema cache')) setMsg('打卡功能还没启用：先在 Supabase 跑 checkins 建表 SQL')
+      else if (m.toLowerCase().includes('bucket') || m.includes('checkin-photos')) setMsg('照片云存储还没启用：先在 Supabase 建 checkin-photos 存储桶（见 supabase/storage.sql）')
+      else setMsg(m)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -72,7 +83,7 @@ export default function SpotDetail({ name, city, onClose }: { name: string; city
         {total > 0 && (
           <div className="mt-2" style={{ fontSize: '12px', color: 'var(--color-ink-faint)' }}>
             你已打卡过 <span style={{ color: 'var(--color-seal)' }}>{total}</span> 个地方
-            {title(total) && <span className="font-serif" style={{ marginLeft: '8px', color: 'var(--color-seal)', border: '1px solid var(--color-seal)', borderRadius: '3px', padding: '1px 6px', fontSize: '11px' }}>{title(total)}</span>}
+            {badge(total) && <span className="font-serif" style={{ marginLeft: '8px', color: 'var(--color-seal)', border: '1px solid var(--color-seal)', borderRadius: '3px', padding: '1px 6px', fontSize: '11px' }}>{badge(total)}</span>}
           </div>
         )}
 
@@ -99,21 +110,25 @@ export default function SpotDetail({ name, city, onClose }: { name: string; city
         {/* 照片 */}
         <div className="mt-5 flex items-center gap-2 flex-wrap">
           {photos.map((p, i) => (
-            <img key={i} src={p} alt="" style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px' }} />
+            <img key={'u' + i} src={p} alt="" style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px' }} />
+          ))}
+          {previews.map((p, i) => (
+            <img key={'n' + i} src={p} alt="" style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', opacity: 0.7 }} />
           ))}
           <label style={{ width: '56px', height: '56px', borderRadius: '8px', border: '1px dashed var(--color-qing)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-qing)', fontSize: '20px', cursor: 'pointer' }}>
             ＋
             <input type="file" accept="image/*" multiple onChange={onPhoto} style={{ display: 'none' }} />
           </label>
         </div>
-        <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)', marginTop: '6px' }}>照片当前为本地预览，云端存储待接 Supabase Storage</div>
+        {newFiles.length > 0 && <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)', marginTop: '6px' }}>{newFiles.length} 张新照片将在打卡时上传云端</div>}
 
         <button
           onClick={doCheckin}
-          className="font-serif"
+          disabled={busy}
+          className="font-serif disabled:opacity-60"
           style={{ width: '100%', marginTop: '20px', padding: '11px', borderRadius: '999px', border: 'none', cursor: 'pointer', background: checked ? 'var(--color-qing)' : 'var(--color-seal)', color: '#F7F3EA', fontSize: '15px', letterSpacing: '0.08em' }}
         >
-          {checked ? '✓ 已打卡（保存修改）' : '在这儿打卡'}
+          {busy ? '保存中…' : checked ? '✓ 已打卡（保存修改）' : '在这儿打卡'}
         </button>
         {msg && <div className="mt-2" style={{ fontSize: '12px', color: 'var(--color-qing)' }}>{msg}</div>}
       </div>

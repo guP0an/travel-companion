@@ -77,6 +77,24 @@ export interface Checkin {
   checked_at: string | null
 }
 
+// 把打卡照片上传到 Supabase Storage 的 checkin-photos 桶，返回公开 URL。
+export async function uploadPhotos(files: File[]): Promise<string[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
+  const urls: string[] = []
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i]
+    const ext = (f.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${user.id}/${Date.now()}-${i}.${ext}`
+    const { error } = await supabase.storage.from('checkin-photos').upload(path, f, { upsert: false, contentType: f.type || undefined })
+    if (error) throw error
+    urls.push(supabase.storage.from('checkin-photos').getPublicUrl(path).data.publicUrl)
+  }
+  return urls
+}
+
 export async function countCheckins(): Promise<number> {
   const { count, error } = await supabase.from('checkins').select('id', { count: 'exact', head: true }).not('checked_at', 'is', null)
   if (error) return 0

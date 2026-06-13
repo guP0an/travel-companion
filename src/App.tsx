@@ -10,7 +10,8 @@ import { Mascot } from './components/Mascot'
 import { IcoScroll, IcoCoin, IcoBrush } from './components/Icons'
 import { kyotoMock } from './mock/kyoto'
 import { useSession } from './lib/useSession'
-import { saveItinerary, listMyItineraries, type SavedItinerary } from './lib/db'
+import { saveItinerary, listMyItineraries, countCheckins, type SavedItinerary } from './lib/db'
+import { growth } from './lib/growth'
 
 const PAPER = '#F7F3EA'
 
@@ -18,6 +19,7 @@ export default function App() {
   const [data, setData] = useState(kyotoMock)
   const session = useSession()
   const [count, setCount] = useState<number | null>(null)
+  const [checkins, setCheckins] = useState(0)
   const [saving, setSaving] = useState(false)
   const [note, setNote] = useState('')
   const [view, setView] = useState<'plan' | 'saved' | 'ledger'>('plan')
@@ -29,12 +31,16 @@ export default function App() {
   useEffect(() => {
     if (!session) {
       setCount(null)
+      setCheckins(0)
       return
     }
     listMyItineraries()
       .then((rows) => setCount(rows.length))
       .catch(() => setCount(null))
+    countCheckins().then(setCheckins).catch(() => setCheckins(0))
   }, [session])
+
+  const g = growth(checkins)
 
   const onSave = async () => {
     setSaving(true)
@@ -102,8 +108,11 @@ export default function App() {
               {data.meta.destination} · {data.meta.days} 天 · 已按你的脾气排好
             </div>
             <div style={{ fontSize: '11px', color: 'var(--color-qing)', letterSpacing: '0.04em', marginTop: '3px' }}>
-              丸丸 Lv.1 · 初级丸子
-              {session && count != null ? ` · 收藏 ${count} 程` : ''}
+              丸丸 Lv.{g.lv} · {g.name}
+              {session && checkins > 0 ? ` · 打卡 ${checkins} 处` : ''}
+              {session && g.next != null && (
+                <span style={{ color: 'var(--color-ink-faint)' }}>{`（再打卡 ${g.next - checkins} 处升级）`}</span>
+              )}
             </div>
           </div>
         </header>
@@ -187,7 +196,7 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              <ResultView data={data} editing={editing} onChange={setData} />
+              <ResultView data={data} editing={editing} onChange={setData} onCheckin={() => countCheckins().then(setCheckins).catch(() => {})} />
             </div>
 
             {/* 保存图片（去掉了 PDF） */}

@@ -92,10 +92,12 @@ export default function ResultView({
   data,
   editing = false,
   onChange,
+  onCheckin,
 }: {
   data: Itinerary
   editing?: boolean
   onChange?: (it: Itinerary) => void
+  onCheckin?: () => void
 }) {
   const city = data.meta.destination
   const [markSpot, setMarkSpot] = useState<string | null>(null)
@@ -145,7 +147,7 @@ export default function ResultView({
       <div className="font-serif" style={{ fontSize: '15px', lineHeight: 1.95, color: 'var(--color-ink-soft)' }}>{data.closing}</div>
       <div className="mt-6" style={{ fontSize: '11px', lineHeight: 1.7, color: 'var(--color-ink-faint)' }}>{data.disclaimer}</div>
 
-      {markSpot && <SpotDetail name={markSpot} city={city} onClose={() => setMarkSpot(null)} />}
+      {markSpot && <SpotDetail name={markSpot} city={city} onClose={() => setMarkSpot(null)} onSaved={onCheckin} />}
     </div>
   )
 }
