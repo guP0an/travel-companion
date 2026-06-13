@@ -31,6 +31,13 @@
   animation: wm-hop 2s ease-in-out infinite;
 }
 
+/* 书卷轻轻摇晃 */
+@keyframes ww-sway {
+  0%, 100% { transform: rotate(-0.7deg); }
+  50% { transform: rotate(0.7deg); }
+}
+.ww-sway { animation: ww-sway 5s ease-in-out infinite; transform-origin: 50% 0; }
+
 html, body, #root { height: 100%; }
 body {
   margin: 0;

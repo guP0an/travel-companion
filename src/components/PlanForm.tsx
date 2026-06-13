@@ -110,14 +110,24 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
       <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--color-ink-faint)', marginBottom: '14px' }}>
         告诉丸丸去哪、几天、预算、几个人，丸丸给你安排行程
       </div>
-      <div className="flex gap-4 items-end">
-        <input
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-          placeholder="目的地，如 成都"
-          className="font-serif flex-1"
-          style={underline}
-        />
+      {/* 书卷：内容自动撑开，轻轻摇晃 */}
+      <div className="ww-sway" style={{ borderRadius: '4px', overflow: 'hidden' }}>
+        <div style={{ height: '7px', background: '#9A6B3A', borderRadius: '4px 4px 0 0' }} />
+        <div style={{ background: 'var(--color-paper-2)', padding: '13px 16px', borderLeft: '1px solid var(--color-line)', borderRight: '1px solid var(--color-line)' }}>
+          <textarea
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+            placeholder="告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…"
+            rows={1}
+            className="font-serif"
+            style={{ fieldSizing: 'content', width: '100%', minHeight: '26px', border: 'none', background: 'transparent', outline: 'none', resize: 'none', color: 'var(--color-ink)', fontSize: '15px', lineHeight: 1.8, display: 'block' } as React.CSSProperties}
+          />
+        </div>
+        <div style={{ height: '7px', background: '#9A6B3A', borderRadius: '0 0 4px 4px' }} />
+      </div>
+
+      <div className="flex items-center gap-2 mt-4">
+        <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>玩</span>
         <input
           type="number"
           min={1}
@@ -127,9 +137,10 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
           className="font-serif"
           style={{ ...underline, width: '44px', textAlign: 'center' }}
         />
-        <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)', paddingBottom: '7px' }}>天</span>
+        <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>天</span>
       </div>
-      <div className="flex gap-5 mt-5">
+
+      <div className="flex gap-5 mt-4">
         {PACE.map((p) => (
           <button
             key={p.v}
