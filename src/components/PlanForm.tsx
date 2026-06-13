@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Itinerary } from '../types/itinerary'
-import { generatePlan, extractBookings, type PlanInput, type Booking } from '../lib/plan'
+import { generatePlan, revisePlan, extractBookings, type PlanInput, type Booking } from '../lib/plan'
 import { MascotThinking } from './Mascot'
 
 const TYPE_LABEL: Record<string, string> = {
@@ -36,7 +36,17 @@ const underline: React.CSSProperties = {
   color: 'var(--color-ink)',
 }
 
-export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => void }) {
+export default function PlanForm({
+  onResult,
+  current,
+  hasPlan = false,
+  onReset,
+}: {
+  onResult: (it: Itinerary) => void
+  current?: Itinerary
+  hasPlan?: boolean
+  onReset?: () => void
+}) {
   const [destination, setDestination] = useState('')
   const [days, setDays] = useState(3)
   const [pace, setPace] = useState<PlanInput['pace']>('leisurely')
@@ -89,6 +99,20 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
           .map((b) => `【${b.title}】` + Object.entries(b.fields).map(([k, v]) => `${k}:${v}`).join('，'))
           .join('；')
       : ocrText || undefined
+    // 已有行程 → 这句话当修改指令；否则当新排
+    if (hasPlan && current && destination.trim()) {
+      setBusy(true)
+      setErr('')
+      try {
+        onResult(await revisePlan(current, destination.trim()))
+        setDestination('')
+      } catch (e) {
+        setErr((e as Error).message)
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
     if (!destination.trim() && !ticketText) {
       setErr('告诉丸丸去哪儿，或传一张票/酒店截图')
       return
@@ -107,22 +131,33 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
   return (
     <div className="mb-9">
       <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--color-ink-faint)', marginBottom: '14px' }}>
-        告诉丸丸去哪、几天、预算、几个人，丸丸给你安排行程
+        {hasPlan ? '想改就跟丸丸说一句，比如：6月20号加个夜市、删掉清水寺' : '告诉丸丸去哪、几天、预算、几个人，丸丸给你安排行程'}
       </div>
-      {/* 书卷：内容自动撑开，轻轻摇晃 */}
-      <div className="ww-sway" style={{ borderRadius: '4px', overflow: 'hidden' }}>
-        <div style={{ height: '7px', background: '#9A6B3A', borderRadius: '4px 4px 0 0' }} />
-        <div style={{ background: 'var(--color-paper-2)', padding: '13px 16px', borderLeft: '1px solid var(--color-line)', borderRight: '1px solid var(--color-line)' }}>
+      {/* 羊皮纸：略倾斜、底部卷边、旁边斜插毛笔 */}
+      <div className="ww-sway" style={{ position: 'relative', marginTop: '6px' }}>
+        {/* 斜插的毛笔 */}
+        <svg width="22" height="60" viewBox="0 0 22 60" aria-hidden style={{ position: 'absolute', top: '-18px', right: '14px', transform: 'rotate(22deg)', zIndex: 2 }}>
+          <rect x="8" y="2" width="6" height="33" rx="3" fill="#9A6B3A" />
+          <rect x="8" y="2" width="6" height="7" rx="3" fill="#7E5630" />
+          <path d="M8 35 q3 16 3 21 q0-5 3-21 z" fill="#2B2924" />
+          <circle cx="11" cy="58" r="1.6" fill="#2B2924" />
+        </svg>
+        {/* 纸面 */}
+        <div style={{ background: 'var(--color-paper-2)', padding: '14px 16px 10px', border: '1px solid var(--color-line)', borderBottom: 'none', borderRadius: '3px 3px 0 0' }}>
           <textarea
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
-            placeholder="告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…"
+            placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : '告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…'}
             rows={1}
             className="font-serif"
             style={{ fieldSizing: 'content', width: '100%', minHeight: '26px', border: 'none', background: 'transparent', outline: 'none', resize: 'none', color: 'var(--color-ink)', fontSize: '15px', lineHeight: 1.8, display: 'block' } as React.CSSProperties}
           />
         </div>
-        <div style={{ height: '7px', background: '#9A6B3A', borderRadius: '0 0 4px 4px' }} />
+        {/* 卷起的底边 */}
+        <svg viewBox="0 0 300 22" width="100%" height="20" preserveAspectRatio="none" style={{ display: 'block', marginTop: '-1px' }}>
+          <path d="M2 2 C 90 -1, 210 -1, 298 2 C 300 14, 292 20, 270 19 C 180 21, 120 21, 30 19 C 8 20, 0 12, 2 2 Z" fill="#EBD9B4" stroke="#C9A06A" strokeWidth="1.4" />
+          <path d="M16 6 C 110 9, 190 9, 284 6" stroke="#B98A4A" strokeWidth="1" fill="none" opacity="0.5" />
+        </svg>
       </div>
 
       <div className="flex items-center gap-2 mt-4">
@@ -280,6 +315,21 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
         </button>
       )}
       {err && <div className="mt-2" style={{ fontSize: '12px', color: 'var(--color-seal)' }}>{err}</div>}
+      {hasPlan && !busy && (
+        <div className="mt-3 text-center">
+          <button
+            onClick={() => {
+              onReset?.()
+              setDestination('')
+              setBookings([])
+              setOcrText('')
+            }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-faint)', fontSize: '12px' }}
+          >
+            ↺ 重新排一版
+          </button>
+        </div>
+      )}
     </div>
   )
 }
