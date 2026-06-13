@@ -109,6 +109,7 @@ export default function ResultView({
           <div className="flex items-baseline gap-3 pb-2.5 mb-1" style={{ borderBottom: '1px solid var(--color-line)' }}>
             <span style={{ fontSize: '10.5px', letterSpacing: '0.22em', color: 'var(--color-ink-faint)' }}>DAY</span>
             <span className="font-serif" style={{ fontSize: '28px', lineHeight: 1, color: 'var(--color-ink)' }}>{CN[day.dayIndex] || day.dayIndex}</span>
+            {day.date && <span style={{ fontSize: '11.5px', color: 'var(--color-ink-faint)' }}>{day.date}</span>}
             {editing ? (
               <input value={day.theme} onChange={(e) => setTheme(d, e.target.value)} className="font-serif ml-auto" style={{ ...edInput, fontSize: '15px', color: 'var(--color-ink-soft)', textAlign: 'right', width: '150px' }} />
             ) : (

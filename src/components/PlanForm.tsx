@@ -59,18 +59,17 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
     if (!f) return
     setOcrBusy(true)
     setErr('')
-    setBookings([])
-    setOcrText('')
     try {
       const Tesseract = (await import('tesseract.js')).default
       const { data } = await Tesseract.recognize(f, 'chi_sim+eng')
       const text = data.text.replace(/\s+/g, ' ').trim()
-      setOcrText(text)
       if (!text) {
         setErr('没读出文字，换张更清晰的截图试试')
         return
       }
-      setBookings(await extractBookings(text))
+      const bs = await extractBookings(text)
+      if (bs.length) setBookings((prev) => [...prev, ...bs]) // 累加，不覆盖之前传的
+      else setOcrText(text)
     } catch (e) {
       setErr('识别失败：' + (e as Error).message)
     } finally {

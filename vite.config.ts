@@ -32,7 +32,7 @@ const SYSTEM_PROMPT = `你是「丸丸」，一个温柔、贴心、记得用户
   "closing": string,    // 结语，邀请用户让你调整
   "disclaimer": "营业时间和价格可能有变，出行前丸丸建议你再核实一次哦～"
 }
-要求：按节奏定密度（紧凑多排、溜达留白）；必去清单必须排进去；避雷里的回避；照顾同行人（带娃/带老人降强度）；**每条都给具体开始时间(timeHint，如 09:30)，每天内按时间先后排列、符合常理(别把午饭排早餐前)**；其余选填给不准就留空串。`
+要求：按节奏定密度（紧凑多排、溜达留白）；必去清单必须排进去；避雷里的回避；照顾同行人（带娃/带老人降强度）；**每条都给具体开始时间(timeHint，如 09:30)，每天内按时间先后排列、符合常理(别把午饭排早餐前)**；**每天都填具体日期(date，如 2026-06-19)**，有票/酒店或出发日期时按其推算连续日期；其余选填给不准就留空串。`
 
 function buildUser(input: any): string {
   const tier = input.budgetTier || '未指定'
@@ -128,6 +128,34 @@ async function extractBookings(text: string, env: Record<string, string>) {
   return JSON.parse(content).bookings || []
 }
 
+// 按用户一句话修改已有行程
+async function revise(body: any, env: Record<string, string>) {
+  const key = env.DEEPSEEK_API_KEY
+  const base = env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+  const model = env.DEEPSEEK_MODEL || 'deepseek-chat'
+  if (!key) throw new Error('DEEPSEEK_API_KEY 未配置')
+  const user = `这是当前行程 JSON：\n${JSON.stringify(body.plan)}\n\n请按以下要求修改，并输出修改后的【完整】同结构 Itinerary JSON（只动需要改的，其余原样保留；时间/日期保持合理、按时间排序）：${body.instruction}`
+  const r = await fetch(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: user },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.5,
+      max_tokens: 8192,
+    }),
+  })
+  if (!r.ok) throw new Error('DeepSeek HTTP ' + r.status + ' ' + (await r.text()))
+  const data = (await r.json()) as any
+  const content = data.choices?.[0]?.message?.content
+  if (!content) throw new Error('DeepSeek 返回空内容')
+  return JSON.parse(content)
+}
+
 // 本地 serverless 代理：藏 DeepSeek key（用 process 环境，不进前端 bundle）
 function deepseekApi(env: Record<string, string>): Plugin {
   return {
@@ -168,6 +196,21 @@ function deepseekApi(env: Record<string, string>): Plugin {
           res.end(JSON.stringify({ bookings }))
         } catch (e) {
           res.end(JSON.stringify({ ok: false, friendlyMessage: '这张图没读清，手动填一下也行～', error: String((e as Error).message) }))
+        }
+      })
+
+      server.middlewares.use('/api/revise', async (req: any, res: any) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+        res.setHeader('content-type', 'application/json')
+        try {
+          const body = await readJson(req)
+          res.end(JSON.stringify(await revise(body, env)))
+        } catch (e) {
+          res.end(JSON.stringify({ ok: false, friendlyMessage: '丸丸没改明白，换句话说说看～', error: String((e as Error).message) }))
         }
       })
     },

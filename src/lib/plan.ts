@@ -33,6 +33,18 @@ export async function extractBookings(text: string): Promise<Booking[]> {
   return (data.bookings || []) as Booking[]
 }
 
+// 用一句话让丸丸修改已有行程。
+export async function revisePlan(plan: Itinerary, instruction: string): Promise<Itinerary> {
+  const res = await fetch('/api/revise', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ plan, instruction }),
+  })
+  const data = await res.json()
+  if (data && data.ok === false) throw new Error(data.friendlyMessage || '改不动')
+  return data as Itinerary
+}
+
 // 调本地代理 → DeepSeek，返回丸丸现排的行程 JSON。
 export async function generatePlan(input: PlanInput): Promise<Itinerary> {
   const res = await fetch('/api/plan', {

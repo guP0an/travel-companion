@@ -9,6 +9,7 @@ import Ledger from './components/Ledger'
 import { Mascot } from './components/Mascot'
 import { IcoScroll, IcoCoin, IcoBrush } from './components/Icons'
 import { kyotoMock } from './mock/kyoto'
+import { revisePlan } from './lib/plan'
 import { useSession } from './lib/useSession'
 import { saveItinerary, listMyItineraries, type SavedItinerary } from './lib/db'
 
@@ -22,6 +23,21 @@ export default function App() {
   const [note, setNote] = useState('')
   const [view, setView] = useState<'plan' | 'saved' | 'ledger'>('plan')
   const [editing, setEditing] = useState(false)
+  const [reviseText, setReviseText] = useState('')
+  const [revising, setRevising] = useState(false)
+
+  const doRevise = async () => {
+    if (!reviseText.trim()) return
+    setRevising(true)
+    try {
+      setData(await revisePlan(data, reviseText.trim()))
+      setReviseText('')
+    } catch (e) {
+      setNote((e as Error).message)
+    } finally {
+      setRevising(false)
+    }
+  }
   const [trips, setTrips] = useState<SavedItinerary[]>([])
   const printRef = useRef<HTMLDivElement>(null)
 
@@ -153,6 +169,26 @@ export default function App() {
               </div>
             )}
             {note && <div className="mb-2" style={{ fontSize: '12px', color: 'var(--color-qing)' }}>{note}</div>}
+
+            {/* 一句话改行程 */}
+            <div className="flex gap-2 items-center mb-3" style={{ borderTop: '1px solid var(--color-line)', paddingTop: '12px' }}>
+              <input
+                value={reviseText}
+                onChange={(e) => setReviseText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && doRevise()}
+                placeholder="想改哪天？如：6月20号加个夜市、删掉清水寺"
+                className="font-serif"
+                style={{ flex: 1, minWidth: 0, border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', outline: 'none', fontSize: '13px', color: 'var(--color-ink)', padding: '5px 2px' }}
+              />
+              <button
+                onClick={doRevise}
+                disabled={revising}
+                className="font-serif disabled:opacity-60"
+                style={{ flex: '0 0 auto', background: 'var(--color-qing)', color: 'var(--color-paper-2)', border: 'none', borderRadius: '999px', padding: '6px 14px', fontSize: '12.5px', cursor: 'pointer' }}
+              >
+                {revising ? '改…' : '让丸丸改'}
+              </button>
+            </div>
 
             <div className="flex justify-end mb-1">
               <button
