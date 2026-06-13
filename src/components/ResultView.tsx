@@ -34,7 +34,8 @@ function ItemRow({
     return (
       <div className="py-3" style={{ borderTop: '1px solid var(--color-line)' }}>
         <div className="flex items-center gap-2">
-          <input value={item.name} onChange={(e) => onPatch({ name: e.target.value })} className="font-serif" style={{ ...edInput, flex: 1, fontSize: '15px' }} />
+          <input value={item.timeHint} onChange={(e) => onPatch({ timeHint: e.target.value })} placeholder="时间" className="font-serif" style={{ ...edInput, width: '58px', flex: '0 0 auto', fontSize: '13px', color: 'var(--color-qing)' }} />
+          <input value={item.name} onChange={(e) => onPatch({ name: e.target.value })} className="font-serif" style={{ ...edInput, flex: 1, minWidth: 0, fontSize: '15px' }} />
           <button onClick={onRemove} aria-label="删除" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-faint)', fontSize: '16px', lineHeight: 1 }}>×</button>
         </div>
         <input value={item.why} onChange={(e) => onPatch({ why: e.target.value })} placeholder="一句推荐理由" style={{ ...edInput, width: '100%', fontSize: '13px', marginTop: '6px', color: 'var(--color-ink-soft)' }} />
@@ -50,10 +51,17 @@ function ItemRow({
   return (
     <div className="py-4" style={{ borderTop: '1px solid var(--color-line)' }}>
       <div className="flex items-baseline gap-2 flex-wrap">
+        {item.timeHint && (
+          <span className="font-serif" style={{ fontSize: '13px', color: 'var(--color-qing)', flex: '0 0 auto' }}>{item.timeHint}</span>
+        )}
         <span className="font-serif" style={{ fontSize: '16px', color: 'var(--color-ink)' }}>{item.name}</span>
         {item.area && <span style={{ fontSize: '12px', color: 'var(--color-ink-faint)' }}>{item.area}</span>}
         {HAS_MAP.includes(item.type) && (
-          <a href={mapUrl} target="_blank" rel="noreferrer" style={{ fontSize: '11.5px', color: 'var(--color-qing)', textDecoration: 'none', borderBottom: '1px solid var(--color-qing)', lineHeight: 1 }}>地图</a>
+          <a href={mapUrl} target="_blank" rel="noreferrer" aria-label="在地图中查看" title="在地图中查看" style={{ display: 'inline-flex', alignSelf: 'center', lineHeight: 0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--color-qing)" aria-hidden>
+              <path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" />
+            </svg>
+          </a>
         )}
       </div>
       <div className="mt-1" style={{ fontSize: '13px', lineHeight: 1.85, color: 'var(--color-ink-soft)' }}>

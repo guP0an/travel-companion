@@ -45,6 +45,13 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
   const [ocrText, setOcrText] = useState('')
   const [ocrBusy, setOcrBusy] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [openSet, setOpenSet] = useState<Set<number>>(new Set())
+  const toggleOpen = (bi: number) =>
+    setOpenSet((s) => {
+      const n = new Set(s)
+      n.has(bi) ? n.delete(bi) : n.add(bi)
+      return n
+    })
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -158,36 +165,49 @@ export default function PlanForm({ onResult }: { onResult: (it: Itinerary) => vo
           <input type="file" accept="image/*" onChange={onFile} disabled={ocrBusy} style={{ display: 'none' }} />
         </label>
         {bookings.length > 0 && (
-          <div className="mt-3 flex flex-col gap-3">
-            {bookings.map((b, bi) => (
-              <div key={bi} style={{ border: '1px solid var(--color-line)', borderRadius: '10px', padding: '10px 12px' }}>
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '999px', background: 'var(--color-qing-soft)', color: 'var(--color-qing)' }}>
-                    {TYPE_LABEL[b.type] || '其他'}
-                  </span>
-                  <input
-                    value={b.title}
-                    onChange={(e) => setTitle(bi, e.target.value)}
-                    className="font-serif"
-                    style={{ flex: 1, border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', fontSize: '14px', outline: 'none', color: 'var(--color-ink)' }}
-                  />
-                  <button onClick={() => removeBooking(bi)} style={{ background: 'none', border: 'none', color: 'var(--color-ink-faint)', cursor: 'pointer', fontSize: '11px' }}>
-                    删
-                  </button>
-                </div>
-                {Object.entries(b.fields).map(([k, v]) => (
-                  <div key={k} className="flex items-center gap-2 mt-1.5">
-                    <span style={{ fontSize: '12px', color: 'var(--color-ink-faint)', width: '60px', flex: '0 0 auto' }}>{k}</span>
-                    <input
-                      value={v}
-                      onChange={(e) => setField(bi, k, e.target.value)}
-                      style={{ flex: 1, border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', fontSize: '13px', outline: 'none', color: 'var(--color-ink)' }}
-                    />
+          <div className="mt-3 flex flex-col gap-2">
+            {bookings.map((b, bi) => {
+              const open = openSet.has(bi)
+              return (
+                <div key={bi} style={{ border: '1px solid var(--color-line)', borderRadius: '10px', padding: '9px 12px' }}>
+                  <div className="flex items-center gap-2">
+                    <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '999px', background: 'var(--color-qing-soft)', color: 'var(--color-qing)', flex: '0 0 auto' }}>
+                      {TYPE_LABEL[b.type] || '其他'}
+                    </span>
+                    {open ? (
+                      <input
+                        value={b.title}
+                        onChange={(e) => setTitle(bi, e.target.value)}
+                        className="font-serif"
+                        style={{ flex: 1, minWidth: 0, border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', fontSize: '14px', outline: 'none', color: 'var(--color-ink)' }}
+                      />
+                    ) : (
+                      <span className="font-serif" style={{ flex: 1, minWidth: 0, fontSize: '14px', color: 'var(--color-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {b.title}
+                      </span>
+                    )}
+                    <button onClick={() => toggleOpen(bi)} style={{ background: 'none', border: 'none', color: 'var(--color-qing)', cursor: 'pointer', fontSize: '11.5px', flex: '0 0 auto' }}>
+                      {open ? '收起' : '改'}
+                    </button>
+                    <button onClick={() => removeBooking(bi)} style={{ background: 'none', border: 'none', color: 'var(--color-ink-faint)', cursor: 'pointer', fontSize: '11px', flex: '0 0 auto' }}>
+                      删
+                    </button>
                   </div>
-                ))}
-              </div>
-            ))}
-            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>读错了直接改，确认后丸丸据此排程</div>
+                  {open &&
+                    Object.entries(b.fields).map(([k, v]) => (
+                      <div key={k} className="flex items-center gap-2 mt-1.5">
+                        <span style={{ fontSize: '12px', color: 'var(--color-ink-faint)', width: '60px', flex: '0 0 auto' }}>{k}</span>
+                        <input
+                          value={v}
+                          onChange={(e) => setField(bi, k, e.target.value)}
+                          style={{ flex: 1, border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', fontSize: '13px', outline: 'none', color: 'var(--color-ink)' }}
+                        />
+                      </div>
+                    ))}
+                </div>
+              )
+            })}
+            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>丸丸会把这些票/酒店排进行程；读错了点「改」</div>
           </div>
         )}
         {bookings.length === 0 && ocrText && (

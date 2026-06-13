@@ -23,7 +23,7 @@ const SYSTEM_PROMPT = `你是「丸丸」，一个温柔、贴心、记得用户
     "segments": [ { "period": "morning"|"afternoon"|"evening", "items": [ {
       "type": "sight"|"food"|"transport"|"rest"|"activity",
       "name": string, "area": string, "why": string,
-      "butlerTip": string(可空""), "timeHint": string(可空""),
+      "butlerTip": string(可空""), "timeHint": "具体开始时间，24小时制如 09:30，尽量都给",
       "durationHint": string(可空""), "costHint": string(可空""),
       "imageQuery": string(取真实配图的检索词，如"京都 清水寺"),
       "confidence": "high"|"medium"|"low"  // high=很有把握的知名地点；medium=方向对但细节请核实；low=不太确定
@@ -32,7 +32,7 @@ const SYSTEM_PROMPT = `你是「丸丸」，一个温柔、贴心、记得用户
   "closing": string,    // 结语，邀请用户让你调整
   "disclaimer": "行程由 AI 生成，景点营业时间/价格请出行前再核实一次。"
 }
-要求：按节奏定密度（紧凑多排、溜达留白）；必去清单必须排进去；避雷里的回避；照顾同行人（带娃/带老人降强度）；选填给不准就留空串。`
+要求：按节奏定密度（紧凑多排、溜达留白）；必去清单必须排进去；避雷里的回避；照顾同行人（带娃/带老人降强度）；**每条都给具体开始时间(timeHint，如 09:30)，每天内按时间先后排列、符合常理(别把午饭排早餐前)**；其余选填给不准就留空串。`
 
 function buildUser(input: any): string {
   const tier = input.budgetTier || '未指定'
@@ -48,7 +48,10 @@ function buildUser(input: any): string {
     tags ? `我的喜好：${tags}。` : '',
     input.travelerNote ? `补充：${input.travelerNote}。` : '',
     input.ticketText
-      ? `我上传了票务截图，OCR 识别出的文字如下：「${input.ticketText}」。请从中读出出发地/目的地/日期/车次或航班/到达时间，据此排程：到达当天别排太满、给接驳留时间，返程当天预留赶车/赶飞机的余量；如果我上面没单独说目的地，就以票里的到达城市作为目的地。`
+      ? `我已确认的票务/酒店预订如下：「${input.ticketText}」。请把它们**作为行程里的具体条目**排进对应日期：
+  - 交通（火车/高铁/机票）：用 type:"transport" 的条目，name 写明车次或航班+出发→到达（如"G304 香港西九龙→武汉"），timeHint 写出发时间，放在该日期当天最前；到达当天别排太满、留接驳时间，返程当天预留赶车余量。
+  - 酒店：用 type:"rest" 的条目，name 写"入住 {酒店名}"，在入住当天加一条、离店当天可加退房，area 写酒店位置。
+  - 行程天数与起止日期以这些票为准；如果我没单独说目的地，就以票里的到达城市为目的地。`
       : '',
     '请按你管家的风格给我排一版，并严格按规定的 JSON 结构输出。',
   ].filter(Boolean).join('')
