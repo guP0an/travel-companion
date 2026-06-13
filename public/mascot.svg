@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <!-- 丸丸 · 原创吉祥物 icon -->
+  <!-- 顶上青芽 -->
+  <path d="M50 23 V12" fill="none" stroke="#3E7C86" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M50 15 q-8-4-11 2 q6 5 11 0 z" fill="#3E7C86"/>
+  <path d="M50 17 q8-4 11 2 q-6 5 -11 0 z" fill="#3E7C86" opacity="0.78"/>
+  <!-- 身体 -->
+  <path d="M50 23 C 28 23, 17 39, 17 58 C 17 78, 33 90, 50 90 C 67 90, 83 78, 83 58 C 83 39, 72 23, 50 23 Z" fill="#FCFAF4" stroke="#2B2924" stroke-width="3" stroke-linejoin="round"/>
+  <!-- 眼睛 + 高光 -->
+  <ellipse cx="37" cy="55" rx="6" ry="7.4" fill="#2B2924"/>
+  <ellipse cx="63" cy="55" rx="6" ry="7.4" fill="#2B2924"/>
+  <circle cx="39.2" cy="51.6" r="2.1" fill="#FCFAF4"/>
+  <circle cx="65.2" cy="51.6" r="2.1" fill="#FCFAF4"/>
+  <circle cx="35.4" cy="57.6" r="1" fill="#FCFAF4" opacity="0.8"/>
+  <circle cx="61.4" cy="57.6" r="1" fill="#FCFAF4" opacity="0.8"/>
+  <!-- 泪痣：右眼眼尾 -->
+  <circle cx="29.5" cy="62" r="1.5" fill="#2B2924"/>
+  <!-- 腮红 -->
+  <ellipse cx="26" cy="67" rx="5" ry="3" fill="#AE4332" opacity="0.3"/>
+  <ellipse cx="74" cy="67" rx="5" ry="3" fill="#AE4332" opacity="0.3"/>
+  <!-- 微笑 -->
+  <path d="M44 69 q6 5 12 0" fill="none" stroke="#2B2924" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

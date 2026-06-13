@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  /* 宣纸 · 水墨 · 青花点睛 —— 轻、留白、克制 */
+  --color-paper: #F7F3EA;        /* 宣纸暖白 */
+  --color-paper-2: #FCFAF4;      /* 更亮的纸（卡片/输入聚焦） */
+  --color-ink: #2B2924;          /* 水墨（标题/正文） */
+  --color-ink-soft: #6E6757;     /* 次级墨 */
+  --color-ink-faint: #A89F8B;    /* 淡墨（注脚/占位） */
+  --color-qing: #3E7C86;         /* 青（青花/青瓷之间，唯一点缀色） */
+  --color-qing-soft: #E7EFEC;    /* 青淡底 */
+  --color-seal: #AE4332;         /* 朱砂印 */
+  --color-line: rgba(43, 41, 36, 0.1); /* 发丝分隔线 */
+  --font-serif: "Songti SC", "STSong", "Noto Serif SC", "STKaiti", Georgia, serif;
+}
+
+/* 丸丸蹦蹦跳跳：挤压→大蹦→落地→小蹦→歇一下，循环 */
+@keyframes wm-hop {
+  0%   { transform: translateY(0) scale(1, 1); }
+  8%   { transform: translateY(0) scale(1.12, 0.88); }
+  30%  { transform: translateY(-15px) scale(0.95, 1.06); }
+  48%  { transform: translateY(0) scale(1.1, 0.9); }
+  62%  { transform: translateY(-7px) scale(0.98, 1.03); }
+  74%  { transform: translateY(0) scale(1.05, 0.95); }
+  82%, 100% { transform: translateY(0) scale(1, 1); }
+}
+.wm-hop {
+  display: inline-block;
+  line-height: 0;
+  transform-origin: 50% 92%;
+  animation: wm-hop 2s ease-in-out infinite;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: -apple-system, "PingFang SC", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
