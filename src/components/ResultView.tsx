@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { Itinerary, Item, Period } from '../types/itinerary'
+import SpotDetail from './SpotDetail'
 
 const PERIOD: Record<Period, string> = { morning: '上午', afternoon: '下午', evening: '晚上' }
 const CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五']
@@ -23,12 +25,14 @@ function ItemRow({
   editing,
   onPatch,
   onRemove,
+  onMark,
 }: {
   item: Item
   city: string
   editing: boolean
   onPatch: (p: Partial<Item>) => void
   onRemove: () => void
+  onMark: () => void
 }) {
   if (editing) {
     return (
@@ -63,6 +67,13 @@ function ItemRow({
             </svg>
           </a>
         )}
+        {HAS_MAP.includes(item.type) && (
+          <button onClick={onMark} aria-label="打卡 / 详情" title="打卡 / 详情" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignSelf: 'center', lineHeight: 0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--color-seal)" aria-hidden>
+              <path d="M6 2v20M6 3h11l-2 4 2 4H6" stroke="var(--color-seal)" strokeWidth="2" fill="var(--color-seal)" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="mt-1" style={{ fontSize: '13px', lineHeight: 1.85, color: 'var(--color-ink-soft)' }}>
         {item.why}
@@ -87,6 +98,7 @@ export default function ResultView({
   onChange?: (it: Itinerary) => void
 }) {
   const city = data.meta.destination
+  const [markSpot, setMarkSpot] = useState<string | null>(null)
 
   const mutDays = (d: number, fn: (day: Itinerary['days'][number]) => Itinerary['days'][number]) =>
     onChange?.({ ...data, days: data.days.map((day, x) => (x === d ? fn(day) : day)) })
@@ -120,7 +132,7 @@ export default function ResultView({
             <div key={s}>
               <div className="mt-5 mb-0.5" style={{ fontSize: '11px', letterSpacing: '0.22em', color: 'var(--color-qing)' }}>{PERIOD[seg.period]}</div>
               {seg.items.map((it, i) => (
-                <ItemRow key={i} item={it} city={city} editing={editing} onPatch={(p) => patchItem(d, s, i, p)} onRemove={() => removeItem(d, s, i)} />
+                <ItemRow key={i} item={it} city={city} editing={editing} onPatch={(p) => patchItem(d, s, i, p)} onRemove={() => removeItem(d, s, i)} onMark={() => setMarkSpot(it.name)} />
               ))}
               {editing && (
                 <button onClick={() => addItem(d, s)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-qing)', fontSize: '12.5px', marginTop: '6px' }}>＋ 加一项</button>
@@ -132,6 +144,8 @@ export default function ResultView({
 
       <div className="font-serif" style={{ fontSize: '15px', lineHeight: 1.95, color: 'var(--color-ink-soft)' }}>{data.closing}</div>
       <div className="mt-6" style={{ fontSize: '11px', lineHeight: 1.7, color: 'var(--color-ink-faint)' }}>{data.disclaimer}</div>
+
+      {markSpot && <SpotDetail name={markSpot} city={city} onClose={() => setMarkSpot(null)} />}
     </div>
   )
 }

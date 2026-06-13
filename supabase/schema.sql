@@ -47,6 +47,23 @@ create policy "own expenses" on public.expenses
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create index if not exists expenses_user_idx on public.expenses (user_id, created_at desc);
 
+-- 景点打卡：打卡/评分/评论/照片
+create table if not exists public.checkins (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  spot       text not null,            -- 城市+景点名，作为 key
+  rating     int,                      -- 1-5 星
+  review     text default '',
+  photos     text[] default '{}',      -- 照片 URL（接 Supabase Storage 后填）
+  checked_at timestamptz,              -- 打卡时间
+  created_at timestamptz default now(),
+  unique (user_id, spot)
+);
+alter table public.checkins enable row level security;
+drop policy if exists "own checkins" on public.checkins;
+create policy "own checkins" on public.checkins
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 -- 注册时自动建 profile（可选，但推荐）
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$

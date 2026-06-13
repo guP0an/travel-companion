@@ -67,3 +67,34 @@ export async function deleteExpense(id: string): Promise<void> {
   const { error } = await supabase.from('expenses').delete().eq('id', id)
   if (error) throw error
 }
+
+// ===== 景点打卡 =====
+export interface Checkin {
+  spot: string
+  rating: number | null
+  review: string
+  photos: string[]
+  checked_at: string | null
+}
+
+export async function getCheckin(spot: string): Promise<Checkin | null> {
+  const { data, error } = await supabase
+    .from('checkins')
+    .select('spot, rating, review, photos, checked_at')
+    .eq('spot', spot)
+    .maybeSingle()
+  if (error) throw error
+  return (data as Checkin) || null
+}
+
+export async function saveCheckin(c: { spot: string; rating: number | null; review: string; checked: boolean; photos?: string[] }): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('未登录')
+  const row: Record<string, unknown> = { user_id: user.id, spot: c.spot, rating: c.rating, review: c.review }
+  if (c.photos) row.photos = c.photos
+  if (c.checked) row.checked_at = new Date().toISOString()
+  const { error } = await supabase.from('checkins').upsert(row, { onConflict: 'user_id,spot' })
+  if (error) throw error
+}
