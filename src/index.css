@@ -31,13 +31,6 @@
   animation: wm-hop 2s ease-in-out infinite;
 }
 
-/* 羊皮纸：略微倾斜 + 轻轻摇晃 */
-@keyframes ww-sway {
-  0%, 100% { transform: rotate(2.4deg); }
-  50% { transform: rotate(1deg); }
-}
-.ww-sway { animation: ww-sway 5.5s ease-in-out infinite; transform-origin: 50% 100%; }
-
 html, body, #root { height: 100%; }
 body {
   margin: 0;

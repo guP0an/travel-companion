@@ -77,6 +77,12 @@ export interface Checkin {
   checked_at: string | null
 }
 
+export async function countCheckins(): Promise<number> {
+  const { count, error } = await supabase.from('checkins').select('id', { count: 'exact', head: true }).not('checked_at', 'is', null)
+  if (error) return 0
+  return count || 0
+}
+
 export async function getCheckin(spot: string): Promise<Checkin | null> {
   const { data, error } = await supabase
     .from('checkins')

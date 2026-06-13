@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { getCheckin, saveCheckin } from '../lib/db'
+import { getCheckin, saveCheckin, countCheckins } from '../lib/db'
+
+// 打卡次数 → 称号
+function title(n: number): string {
+  if (n >= 50) return '风物志 · 行脚僧'
+  if (n >= 20) return '资深旅人'
+  if (n >= 10) return '本地通'
+  if (n >= 5) return '常客'
+  return ''
+}
 
 export default function SpotDetail({ name, city, onClose }: { name: string; city: string; onClose: () => void }) {
   const spot = (city ? city + ' ' : '') + name
@@ -9,6 +18,7 @@ export default function SpotDetail({ name, city, onClose }: { name: string; city
   const [checked, setChecked] = useState(false)
   const [photos, setPhotos] = useState<string[]>([]) // 本地预览（持久化待接 Supabase Storage）
   const [msg, setMsg] = useState('')
+  const [total, setTotal] = useState(0) // 已打卡的地方总数
 
   useEffect(() => {
     getCheckin(spot)
@@ -20,6 +30,7 @@ export default function SpotDetail({ name, city, onClose }: { name: string; city
         }
       })
       .catch(() => {})
+    countCheckins().then(setTotal).catch(() => {})
   }, [spot])
 
   const onPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -30,10 +41,14 @@ export default function SpotDetail({ name, city, onClose }: { name: string; city
 
   const doCheckin = async () => {
     setMsg('')
+    const wasNew = !checked
     try {
       await saveCheckin({ spot, rating: rating || null, review: review.trim(), checked: true })
       setChecked(true)
-      setMsg('打卡成功！')
+      const n = wasNew ? total + 1 : total
+      setTotal(n)
+      const t = title(n)
+      setMsg(wasNew ? `打卡成功！这是你打卡的第 ${n} 个地方${t ? ` · ${t}` : ''}` : '已更新')
     } catch (e) {
       const m = (e as Error).message
       setMsg(m.includes('checkins') || m.includes('schema cache') ? '打卡功能还没启用：先在 Supabase 跑 checkins 建表 SQL' : m)
@@ -54,6 +69,12 @@ export default function SpotDetail({ name, city, onClose }: { name: string; city
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-faint)', fontSize: '18px' }}>×</button>
         </div>
         <a href={mapUrl} target="_blank" rel="noreferrer" style={{ fontSize: '12.5px', color: 'var(--color-qing)' }}>◍ 在地图上看位置</a>
+        {total > 0 && (
+          <div className="mt-2" style={{ fontSize: '12px', color: 'var(--color-ink-faint)' }}>
+            你已打卡过 <span style={{ color: 'var(--color-seal)' }}>{total}</span> 个地方
+            {title(total) && <span className="font-serif" style={{ marginLeft: '8px', color: 'var(--color-seal)', border: '1px solid var(--color-seal)', borderRadius: '3px', padding: '1px 6px', fontSize: '11px' }}>{title(total)}</span>}
+          </div>
+        )}
 
         {/* 评分 */}
         <div className="mt-5" style={{ fontSize: '12px', color: 'var(--color-ink-faint)', marginBottom: '4px' }}>评分</div>

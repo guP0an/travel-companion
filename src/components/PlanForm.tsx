@@ -133,32 +133,15 @@ export default function PlanForm({
       <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--color-ink-faint)', marginBottom: '14px' }}>
         {hasPlan ? '想改就跟丸丸说一句，比如：6月20号加个夜市、删掉清水寺' : '告诉丸丸去哪、几天、预算、几个人，丸丸给你安排行程'}
       </div>
-      {/* 羊皮纸：略倾斜、底部卷边、旁边斜插毛笔 */}
-      <div className="ww-sway" style={{ position: 'relative', marginTop: '6px' }}>
-        {/* 斜插的毛笔 */}
-        <svg width="22" height="60" viewBox="0 0 22 60" aria-hidden style={{ position: 'absolute', top: '-18px', right: '14px', transform: 'rotate(22deg)', zIndex: 2 }}>
-          <rect x="8" y="2" width="6" height="33" rx="3" fill="#9A6B3A" />
-          <rect x="8" y="2" width="6" height="7" rx="3" fill="#7E5630" />
-          <path d="M8 35 q3 16 3 21 q0-5 3-21 z" fill="#2B2924" />
-          <circle cx="11" cy="58" r="1.6" fill="#2B2924" />
-        </svg>
-        {/* 纸面 */}
-        <div style={{ background: 'var(--color-paper-2)', padding: '14px 16px 10px', border: '1px solid var(--color-line)', borderBottom: 'none', borderRadius: '3px 3px 0 0' }}>
-          <textarea
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : '告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…'}
-            rows={1}
-            className="font-serif"
-            style={{ fieldSizing: 'content', width: '100%', minHeight: '26px', border: 'none', background: 'transparent', outline: 'none', resize: 'none', color: 'var(--color-ink)', fontSize: '15px', lineHeight: 1.8, display: 'block' } as React.CSSProperties}
-          />
-        </div>
-        {/* 卷起的底边 */}
-        <svg viewBox="0 0 300 22" width="100%" height="20" preserveAspectRatio="none" style={{ display: 'block', marginTop: '-1px' }}>
-          <path d="M2 2 C 90 -1, 210 -1, 298 2 C 300 14, 292 20, 270 19 C 180 21, 120 21, 30 19 C 8 20, 0 12, 2 2 Z" fill="#EBD9B4" stroke="#C9A06A" strokeWidth="1.4" />
-          <path d="M16 6 C 110 9, 190 9, 284 6" stroke="#B98A4A" strokeWidth="1" fill="none" opacity="0.5" />
-        </svg>
-      </div>
+      {/* 干净的多行输入（内容自动撑开） */}
+      <textarea
+        value={destination}
+        onChange={(e) => setDestination(e.target.value)}
+        placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : '告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…'}
+        rows={1}
+        className="font-serif"
+        style={{ fieldSizing: 'content', width: '100%', minHeight: '28px', border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', outline: 'none', resize: 'none', color: 'var(--color-ink)', fontSize: '15px', lineHeight: 1.8, padding: '6px 2px', display: 'block' } as React.CSSProperties}
+      />
 
       <div className="flex items-center gap-2 mt-4">
         <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>玩</span>
