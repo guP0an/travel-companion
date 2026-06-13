@@ -45,7 +45,20 @@
 | [07 模块与分期](07-product-modules-and-phasing.md) | 三模块、分期上线策略 |
 | [08 旅行全周期与护城河](08-travel-lifecycle-and-moat.md) | 行前/行中/行后、记忆飞轮、差异化 |
 
-## 当前进度
+## 当前进度（2026-06-13）
 
-- ✅ 文档体系成型（00–08）；架构图、原型、飞轮图已出。
-- ⏭ 下一步（待 lord 定）：起 Vite 工程骨架，先把 Phase 1 行前两屏（对话页 + 带导出的结果页）用 mock 数据跑起来。
+**已实现（Phase 1 可跑，`localhost:5173`）**：
+- 工程：React + Vite + TS + Tailwind v4。
+- 生成：DeepSeek 真生成行程（serverless 代理藏 Key）。
+- 账号/云存储：Supabase Auth(邮箱) + Postgres（itineraries 表）；收藏 + 我的行程查看页。
+- 丸丸：原创小丸子吉祥物（蹦跳动画）+ Lv 成长标记；一串丸子生成按钮。
+- 上传图：截图 OCR(Tesseract) → DeepSeek 结构化提取（票务/酒店）→ 可编辑表单 → 据此排程。
+- 地图入口：每条景点跳高德；当前位置「你现在在 X」。
+- 账本：消费记录（分类/金额/备注/总额/流水），expenses 表。
+- 手动编辑行程：改/加/删条目、改每日主题。
+- 导出：保存图片（分享卡）。
+
+**待办**：
+- ⚠️ 在 Supabase 跑 `expenses` 建表 SQL（见 supabase/schema.sql）账本才可用。
+- 代码已本地提交，**尚未推 GitHub**（需配 remote / 装 gh）。
+- 真实出行打卡 + 丸丸升级；记忆地图 ③；上传信息更深落进行程条目。
