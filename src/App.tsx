@@ -7,6 +7,7 @@ import SavedTrips from './components/SavedTrips'
 import CurrentCity from './components/CurrentCity'
 import Ledger from './components/Ledger'
 import { Mascot } from './components/Mascot'
+import { IcoScroll, IcoCoin, IcoBrush } from './components/Icons'
 import { kyotoMock } from './mock/kyoto'
 import { useSession } from './lib/useSession'
 import { saveItinerary, listMyItineraries, type SavedItinerary } from './lib/db'
@@ -130,15 +131,15 @@ export default function App() {
                 <span style={{ display: 'flex', gap: '16px' }}>
                   <button
                     onClick={openSaved}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-soft)', fontSize: '12px', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-soft)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                   >
-                    我的行程 · {count ?? '…'} 份
+                    <IcoScroll /> 我的行程 · {count ?? '…'} 份
                   </button>
                   <button
                     onClick={() => setView('ledger')}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-soft)', fontSize: '12px', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-soft)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                   >
-                    账本
+                    <IcoCoin /> 账本
                   </button>
                 </span>
                 <button
@@ -157,9 +158,9 @@ export default function App() {
               <button
                 onClick={() => setEditing((v) => !v)}
                 className="font-serif"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12.5px', color: editing ? 'var(--color-qing)' : 'var(--color-ink-soft)', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12.5px', color: editing ? 'var(--color-qing)' : 'var(--color-ink-soft)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
               >
-                {editing ? '完成编辑' : '编辑行程'}
+                <IcoBrush /> {editing ? '完成编辑' : '编辑行程'}
               </button>
             </div>
 

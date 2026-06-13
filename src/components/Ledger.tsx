@@ -11,10 +11,16 @@ export default function Ledger({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
+  const friendly = (e: unknown) => {
+    const m = (e as Error).message || ''
+    if (m.includes('expenses') || m.includes('schema cache')) return '账本还没启用：先去 Supabase 跑一下 expenses 建表 SQL'
+    return m
+  }
+
   const load = () => {
     listExpenses()
       .then(setRows)
-      .catch((e) => setErr((e as Error).message))
+      .catch((e) => setErr(friendly(e)))
   }
   useEffect(load, [])
 
@@ -34,7 +40,7 @@ export default function Ledger({ onBack }: { onBack: () => void }) {
       setNote('')
       load()
     } catch (e) {
-      setErr((e as Error).message)
+      setErr(friendly(e))
     } finally {
       setBusy(false)
     }
@@ -93,7 +99,13 @@ export default function Ledger({ onBack }: { onBack: () => void }) {
         <div className="flex gap-3 items-end">
           <input value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder="金额 ¥" className="font-serif" style={{ ...underline, width: '90px' }} />
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="备注（选填）" style={{ ...underline, flex: 1 }} />
-          <button onClick={add} disabled={busy} className="font-serif disabled:opacity-60" style={{ background: 'var(--color-qing)', color: 'var(--color-paper-2)', border: 'none', borderRadius: '999px', padding: '7px 18px', fontSize: '13.5px', cursor: 'pointer' }}>
+          <button
+            onClick={add}
+            disabled={busy}
+            aria-label="记一笔"
+            className="font-serif disabled:opacity-60"
+            style={{ background: 'var(--color-seal)', color: '#F7F3EA', border: 'none', borderRadius: '6px', width: '40px', height: '46px', flex: '0 0 auto', writingMode: 'vertical-rl', letterSpacing: '3px', fontSize: '13px', lineHeight: 1, cursor: 'pointer' }}
+          >
             记一笔
           </button>
         </div>
