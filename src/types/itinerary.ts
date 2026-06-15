@@ -5,9 +5,16 @@ export interface Itinerary {
   meta: ItineraryMeta
   greeting: string // 管家开场白（带性格）
   prep?: PrepNote[] // 行前准备 / 注意事项（货币/插头/流量/证件…），境外尤重
+  highlights?: Highlight[] // 当季限定：本地当季著名景观/时令（枫叶/樱花/花期/限定活动），模型按目的地+月份给
   days: DayPlan[] // 长度 = meta.days
   closing: string // 结语
   disclaimer: string // 真实性免责提示
+}
+
+// 当季限定景观/时令的一条
+export interface Highlight {
+  title: string // 如「岳麓山枫叶正红」
+  detail: string // 在哪、为何著名、怎么赏 / 时令
 }
 
 // 行前准备 / 注意事项的一条

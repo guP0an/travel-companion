@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Itinerary, Item, Period, PrepNote } from '../types/itinerary'
+import type { Itinerary, Item, Period, PrepNote, Highlight } from '../types/itinerary'
 import SpotDetail from './SpotDetail'
 import { fetchWeather, type DayWeather } from '../lib/weather'
 import { phenomena, type Phenomenon } from '../lib/phenomena'
@@ -61,43 +61,58 @@ const CHANCE_LABEL: Record<Phenomenon['chance'], { t: string; c: string } | null
   low: { t: '概率较低', c: 'var(--color-ink-faint)' },
   info: null,
 }
-const CN_DATE = (iso: string) => {
-  const p = iso.split('-')
-  return p.length === 3 ? `${Number(p[1])}月${Number(p[2])}日` : iso
-}
-
-function PhenomenaCard({ list }: { list: Phenomenon[] }) {
+// 当季限定（模型给的本地当季著名景观/时令）——整趟一张卡，放在行前准备之后
+function HighlightCard({ list }: { list: Highlight[] }) {
   const [open, setOpen] = useState(true)
   return (
-    <section className="mb-8" style={{ border: '1px solid var(--color-line)', borderRadius: '10px', background: 'var(--color-paper-2)', padding: '14px 16px' }}>
+    <section className="mb-8" style={{ border: '1px solid var(--color-seal)', borderRadius: '10px', background: 'var(--color-paper-2)', padding: '14px 16px' }}>
       <button onClick={() => setOpen((v) => !v)} className="font-serif" style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0, color: 'var(--color-ink)', fontSize: '15px' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', background: 'var(--color-qing)', color: '#F7F3EA', borderRadius: '3px', fontSize: '10px' }}>遇</span>
-          特殊景观 · 可遇不可求
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', background: 'var(--color-seal)', color: '#F7F3EA', borderRadius: '3px', fontSize: '10px' }}>限</span>
+          当季限定 · 别错过
         </span>
         <span style={{ color: 'var(--color-ink-faint)', fontSize: '13px' }}>{open ? '收起' : `展开 ${list.length} 条`}</span>
       </button>
       {open && (
         <div className="mt-3" style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
-          {list.map((p, i) => {
-            const lab = CHANCE_LABEL[p.chance]
-            return (
-              <div key={i} style={{ display: 'flex', gap: '9px' }}>
-                <span aria-hidden style={{ fontSize: '15px', lineHeight: 1.5, flex: '0 0 auto' }}>{p.icon}</span>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '13.5px', lineHeight: 1.6, color: 'var(--color-ink)' }}>
-                    <span style={{ color: 'var(--color-ink-faint)', marginRight: '6px' }}>{CN_DATE(p.date)}</span>
-                    {p.title}
-                    {lab && <span className="font-serif" style={{ marginLeft: '7px', color: lab.c, border: `1px solid ${lab.c}`, borderRadius: '3px', padding: '0 5px', fontSize: '10.5px' }}>{lab.t}</span>}
-                  </div>
-                  <div style={{ fontSize: '12px', lineHeight: 1.7, color: 'var(--color-ink-soft)', marginTop: '2px' }}>{p.detail}</div>
-                </div>
+          {list.map((h, i) => (
+            <div key={i}>
+              <div style={{ fontSize: '13.5px', lineHeight: 1.6, color: 'var(--color-ink)' }}>
+                <span style={{ color: 'var(--color-seal)', marginRight: '6px' }}>◆</span>
+                {h.title}
               </div>
-            )
-          })}
+              {h.detail && <div style={{ fontSize: '12px', lineHeight: 1.7, color: 'var(--color-ink-soft)', marginTop: '2px', paddingLeft: '16px' }}>{h.detail}</div>}
+            </div>
+          ))}
         </div>
       )}
     </section>
+  )
+}
+
+// 某一天可遇的特殊景观（日落/流星/天气相关），渲染在那天行程末尾
+function DayPhenomena({ list }: { list: Phenomenon[] }) {
+  return (
+    <div className="mt-4 pl-3" style={{ borderLeft: '2px solid var(--color-qing-soft)' }}>
+      <div className="font-serif" style={{ fontSize: '11.5px', letterSpacing: '0.06em', color: 'var(--color-qing)', marginBottom: '8px' }}>✦ 这天可遇</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+        {list.map((p, i) => {
+          const lab = CHANCE_LABEL[p.chance]
+          return (
+            <div key={i} style={{ display: 'flex', gap: '8px' }}>
+              <span aria-hidden style={{ fontSize: '14px', lineHeight: 1.5, flex: '0 0 auto' }}>{p.icon}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '13px', lineHeight: 1.55, color: 'var(--color-ink)' }}>
+                  {p.title}
+                  {lab && <span className="font-serif" style={{ marginLeft: '7px', color: lab.c, border: `1px solid ${lab.c}`, borderRadius: '3px', padding: '0 5px', fontSize: '10px' }}>{lab.t}</span>}
+                </div>
+                <div style={{ fontSize: '11.5px', lineHeight: 1.65, color: 'var(--color-ink-soft)', marginTop: '2px' }}>{p.detail}</div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -211,6 +226,12 @@ export default function ResultView({
     mutDays(d, (day) => ({ ...day, segments: day.segments.map((seg, y) => (y === s ? { ...seg, items: [...seg.items, blankItem()] } : seg)) }))
   const setTheme = (d: number, v: string) => mutDays(d, (day) => ({ ...day, theme: v }))
 
+  // 特殊景观按日期分组，渲染到对应那天行程末尾
+  const phByDate: Record<string, Phenomenon[]> = {}
+  for (const p of phenomena(city, data.days.map((d) => ({ date: d.date })), weather)) {
+    ;(phByDate[p.date] ||= []).push(p)
+  }
+
   return (
     <div>
       <blockquote className="my-8 pl-5 font-serif" style={{ borderLeft: '2px solid var(--color-qing)', fontSize: '17px', lineHeight: 2, color: 'var(--color-ink)', margin: '2rem 0' }}>
@@ -218,10 +239,7 @@ export default function ResultView({
       </blockquote>
 
       {data.prep && data.prep.length > 0 && <PrepCard notes={data.prep} />}
-      {(() => {
-        const ph = phenomena(city, data.days.map((d) => ({ date: d.date })), weather)
-        return ph.length > 0 ? <PhenomenaCard list={ph} /> : null
-      })()}
+      {data.highlights && data.highlights.length > 0 && <HighlightCard list={data.highlights} />}
 
       {data.days.map((day, d) => (
         <section key={d} className="mb-10">
@@ -252,6 +270,7 @@ export default function ResultView({
               )}
             </div>
           ))}
+          {day.date && phByDate[day.date] && phByDate[day.date].length > 0 && <DayPhenomena list={phByDate[day.date]} />}
         </section>
       ))}
 
