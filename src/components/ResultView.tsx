@@ -1,8 +1,42 @@
 import { useState } from 'react'
-import type { Itinerary, Item, Period } from '../types/itinerary'
+import type { Itinerary, Item, Period, PrepNote } from '../types/itinerary'
 import SpotDetail from './SpotDetail'
 
 const PERIOD: Record<Period, string> = { morning: '上午', afternoon: '下午', evening: '晚上' }
+const PREP_ICON: Record<PrepNote['category'], string> = {
+  货币: '💱', 插头电压: '🔌', 网络流量: '📶', 证件签注: '🪪', 支付: '💳', 语言: '🗣️', 天气穿衣: '🌤️', 交通: '🚇', 健康安全: '🩹', 风俗: '🎎', 其他: '📌',
+}
+
+function PrepCard({ notes }: { notes: PrepNote[] }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <section className="mb-8" style={{ border: '1px solid var(--color-line)', borderRadius: '10px', background: 'var(--color-paper-2)', padding: '14px 16px' }}>
+      <button onClick={() => setOpen((v) => !v)} className="font-serif" style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0, color: 'var(--color-ink)', fontSize: '15px' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', background: 'var(--color-seal)', color: '#F7F3EA', borderRadius: '3px', fontSize: '10px' }}>嘱</span>
+          行前准备 · 注意事项
+        </span>
+        <span style={{ color: 'var(--color-ink-faint)', fontSize: '13px' }}>{open ? '收起' : `展开 ${notes.length} 条`}</span>
+      </button>
+      {open && (
+        <div className="mt-3" style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+          {notes.map((n, i) => (
+            <div key={i} style={{ display: 'flex', gap: '9px' }}>
+              <span aria-hidden style={{ fontSize: '15px', lineHeight: 1.5, flex: '0 0 auto' }}>{PREP_ICON[n.category] || '📌'}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '13.5px', lineHeight: 1.6, color: 'var(--color-ink)' }}>
+                  <span className="font-serif" style={{ color: 'var(--color-qing)', marginRight: '6px' }}>{n.category}</span>
+                  {n.title}
+                </div>
+                {n.detail && <div style={{ fontSize: '12px', lineHeight: 1.7, color: 'var(--color-ink-soft)', marginTop: '2px' }}>{n.detail}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
 const CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五']
 const HAS_MAP: Item['type'][] = ['sight', 'food', 'activity']
 
@@ -117,6 +151,8 @@ export default function ResultView({
       <blockquote className="my-8 pl-5 font-serif" style={{ borderLeft: '2px solid var(--color-qing)', fontSize: '17px', lineHeight: 2, color: 'var(--color-ink)', margin: '2rem 0' }}>
         {data.greeting}
       </blockquote>
+
+      {data.prep && data.prep.length > 0 && <PrepCard notes={data.prep} />}
 
       {data.days.map((day, d) => (
         <section key={d} className="mb-10">

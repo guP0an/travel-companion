@@ -4,9 +4,17 @@
 export interface Itinerary {
   meta: ItineraryMeta
   greeting: string // 管家开场白（带性格）
+  prep?: PrepNote[] // 行前准备 / 注意事项（货币/插头/流量/证件…），境外尤重
   days: DayPlan[] // 长度 = meta.days
   closing: string // 结语
   disclaimer: string // 真实性免责提示
+}
+
+// 行前准备 / 注意事项的一条
+export interface PrepNote {
+  category: '货币' | '插头电压' | '网络流量' | '证件签注' | '支付' | '语言' | '天气穿衣' | '交通' | '健康安全' | '风俗' | '其他'
+  title: string // 一句话提醒，如「带些港币现金，小店未必收移动支付」
+  detail: string // 展开说明，可空 ""
 }
 
 export interface ItineraryMeta {
