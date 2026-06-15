@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Itinerary } from '../types/itinerary'
-import { generatePlan, revisePlan, extractBookings, type PlanInput, type Booking } from '../lib/plan'
+import { generatePlan, revisePlan, extractBookings, bookingCategory, parseBookingPrice, type PlanInput, type Booking } from '../lib/plan'
+import { addExpense } from '../lib/db'
 import { MascotThinking } from './Mascot'
 
 const TYPE_LABEL: Record<string, string> = {
@@ -55,6 +56,7 @@ export default function PlanForm({
   const [ocrText, setOcrText] = useState('')
   const [ocrBusy, setOcrBusy] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [ledgerMsg, setLedgerMsg] = useState('')
   const [openSet, setOpenSet] = useState<Set<number>>(new Set())
   const toggleOpen = (bi: number) =>
     setOpenSet((s) => {
@@ -78,13 +80,37 @@ export default function PlanForm({
         return
       }
       const bs = await extractBookings(text)
-      if (bs.length) setBookings((prev) => [...prev, ...bs]) // 累加，不覆盖之前传的
-      else setOcrText(text)
+      if (bs.length) {
+        await autoRecord(bs) // 带价格的票直接记入账本
+        setBookings((prev) => [...prev, ...bs]) // 累加，不覆盖之前传的
+      } else setOcrText(text)
     } catch (e) {
       setErr('识别失败：' + (e as Error).message)
     } finally {
       setOcrBusy(false)
     }
+  }
+
+  // 识别到带价格的票/酒店，直接记入账本（交通/住宿）。未登录或账本未建表则提示。
+  const autoRecord = async (bs: Booking[]) => {
+    const done: string[] = []
+    for (const b of bs) {
+      const amt = parseBookingPrice(b.fields)
+      if (!amt) continue
+      const category = bookingCategory(b.type)
+      try {
+        await addExpense({ category, amount: amt, note: b.title })
+        b.recorded = { amount: amt, category }
+        done.push(`${category} ¥${amt}`)
+      } catch (e) {
+        const m = (e as Error).message || ''
+        if (m.includes('未登录')) setLedgerMsg('登录后，票价会自动记入账本')
+        else if (m.includes('expenses') || m.includes('schema cache')) setLedgerMsg('账本还没启用：先在 Supabase 跑 expenses 建表 SQL')
+        else setLedgerMsg('记账失败：' + m)
+        return
+      }
+    }
+    if (done.length) setLedgerMsg('已记入账本：' + done.join('、'))
   }
 
   const setField = (bi: number, k: string, v: string) =>
@@ -232,6 +258,15 @@ export default function PlanForm({
                   {!open && sub && (
                     <div style={{ fontSize: '12px', color: 'var(--color-qing)', marginTop: '4px', paddingLeft: '2px' }}>{sub}</div>
                   )}
+                  {(() => {
+                    const amt = parseBookingPrice(f)
+                    if (!amt) return null
+                    return (
+                      <div style={{ fontSize: '12px', marginTop: '4px', paddingLeft: '2px', color: b.recorded ? 'var(--color-qing)' : 'var(--color-ink-faint)' }}>
+                        💰 ¥{amt}{b.recorded ? ` · 已记入账本「${b.recorded.category}」` : '（登录后自动记账）'}
+                      </div>
+                    )
+                  })()}
                   {open &&
                     Object.entries(b.fields).map(([k, v]) => (
                       <div key={k} className="flex items-center gap-2 mt-1.5">
@@ -246,7 +281,8 @@ export default function PlanForm({
                 </div>
               )
             })}
-            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>丸丸会把这些票/酒店排进行程；读错了点「改」</div>
+            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>丸丸会把这些票/酒店排进行程；带价格的已记入账本；读错了点「改」</div>
+            {ledgerMsg && <div style={{ fontSize: '11.5px', color: 'var(--color-qing)' }}>{ledgerMsg}</div>}
           </div>
         )}
         {bookings.length === 0 && ocrText && (
@@ -306,6 +342,7 @@ export default function PlanForm({
               setDestination('')
               setBookings([])
               setOcrText('')
+              setLedgerMsg('')
             }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-faint)', fontSize: '12px' }}
           >
