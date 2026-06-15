@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Itinerary, Item, Period, PrepNote } from '../types/itinerary'
 import SpotDetail from './SpotDetail'
+import { fetchWeather, type DayWeather } from '../lib/weather'
 
 const PERIOD: Record<Period, string> = { morning: '上午', afternoon: '下午', evening: '晚上' }
 const PREP_ICON: Record<PrepNote['category'], string> = {
@@ -135,6 +136,23 @@ export default function ResultView({
 }) {
   const city = data.meta.destination
   const [markSpot, setMarkSpot] = useState<string | null>(null)
+  const [weather, setWeather] = useState<Record<string, DayWeather>>({})
+
+  // 拉那几天的真实天气预报（Open-Meteo，免 key）；超出预报窗口的日期拿不到，自动略过。
+  useEffect(() => {
+    const dates = data.days.map((d) => d.date).filter(Boolean)
+    if (!city || dates.length === 0) {
+      setWeather({})
+      return
+    }
+    let alive = true
+    fetchWeather(city, dates)
+      .then((w) => alive && setWeather(w))
+      .catch(() => alive && setWeather({}))
+    return () => {
+      alive = false
+    }
+  }, [city, data.days.map((d) => d.date).join(',')])
 
   const mutDays = (d: number, fn: (day: Itinerary['days'][number]) => Itinerary['days'][number]) =>
     onChange?.({ ...data, days: data.days.map((day, x) => (x === d ? fn(day) : day)) })
@@ -160,6 +178,12 @@ export default function ResultView({
             <span style={{ fontSize: '10.5px', letterSpacing: '0.22em', color: 'var(--color-ink-faint)' }}>DAY</span>
             <span className="font-serif" style={{ fontSize: '28px', lineHeight: 1, color: 'var(--color-ink)' }}>{CN[day.dayIndex] || day.dayIndex}</span>
             {day.date && <span style={{ fontSize: '11.5px', color: 'var(--color-ink-faint)' }}>{day.date}</span>}
+            {day.date && weather[day.date] && (
+              <span title={`降水概率 ${weather[day.date].pop}%`} style={{ fontSize: '11.5px', color: 'var(--color-qing)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                {weather[day.date].icon} {weather[day.date].text} {weather[day.date].tMin}~{weather[day.date].tMax}°
+                {weather[day.date].pop >= 40 && <span style={{ color: 'var(--color-seal)' }}>· 易雨</span>}
+              </span>
+            )}
             {editing ? (
               <input value={day.theme} onChange={(e) => setTheme(d, e.target.value)} className="font-serif ml-auto" style={{ ...edInput, fontSize: '15px', color: 'var(--color-ink-soft)', textAlign: 'right', width: '150px' }} />
             ) : (
