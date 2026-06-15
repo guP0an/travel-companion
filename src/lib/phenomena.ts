@@ -96,13 +96,13 @@ export function phenomena(city: string, days: { date: string }[], weather: Recor
     const dark = illum < 0.35 // 月光弱，利于看暗天体
     const clear = w ? w.clear : false // 没天气数据时按"未知"，不乐观
 
-    // 1) 日落（客观信息）：有日落时刻就给；天晴标"适合看落日"
-    if (w && w.sunset) {
+    // 1) 日落：只有天气通透(晴/多云)才算"可遇景观"；阴雨天看不到落日，不列出来误导
+    if (w && w.sunset && w.clear && w.pop < 50) {
       out.push({
         date,
         icon: '🌅',
-        title: `日落 ${w.sunset}${w.clear ? '，天晴适合看落日' : ''}`,
-        detail: w.clear ? `日出 ${w.sunrise}。当天通透，火烧云/落日可期。` : `日出 ${w.sunrise}。当天云量偏多，落日可能被云挡。`,
+        title: `日落 ${w.sunset}，天晴适合看落日`,
+        detail: `日出 ${w.sunrise}。当天通透，火烧云 / 落日可期。`,
         chance: 'info',
       })
     }
