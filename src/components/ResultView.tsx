@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Itinerary, Item, Period, PrepNote } from '../types/itinerary'
 import SpotDetail from './SpotDetail'
 import { fetchWeather, type DayWeather } from '../lib/weather'
+import { phenomena, type Phenomenon } from '../lib/phenomena'
 
 const PERIOD: Record<Period, string> = { morning: '上午', afternoon: '下午', evening: '晚上' }
 const PREP_ICON: Record<PrepNote['category'], string> = {
@@ -52,6 +53,52 @@ const edInput: React.CSSProperties = {
   outline: 'none',
   color: 'var(--color-ink)',
   padding: '2px 0',
+}
+
+const CHANCE_LABEL: Record<Phenomenon['chance'], { t: string; c: string } | null> = {
+  high: { t: '概率较高', c: 'var(--color-seal)' },
+  medium: { t: '有机会', c: 'var(--color-qing)' },
+  low: { t: '概率较低', c: 'var(--color-ink-faint)' },
+  info: null,
+}
+const CN_DATE = (iso: string) => {
+  const p = iso.split('-')
+  return p.length === 3 ? `${Number(p[1])}月${Number(p[2])}日` : iso
+}
+
+function PhenomenaCard({ list }: { list: Phenomenon[] }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <section className="mb-8" style={{ border: '1px solid var(--color-line)', borderRadius: '10px', background: 'var(--color-paper-2)', padding: '14px 16px' }}>
+      <button onClick={() => setOpen((v) => !v)} className="font-serif" style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0, color: 'var(--color-ink)', fontSize: '15px' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', background: 'var(--color-qing)', color: '#F7F3EA', borderRadius: '3px', fontSize: '10px' }}>遇</span>
+          特殊景观 · 可遇不可求
+        </span>
+        <span style={{ color: 'var(--color-ink-faint)', fontSize: '13px' }}>{open ? '收起' : `展开 ${list.length} 条`}</span>
+      </button>
+      {open && (
+        <div className="mt-3" style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+          {list.map((p, i) => {
+            const lab = CHANCE_LABEL[p.chance]
+            return (
+              <div key={i} style={{ display: 'flex', gap: '9px' }}>
+                <span aria-hidden style={{ fontSize: '15px', lineHeight: 1.5, flex: '0 0 auto' }}>{p.icon}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '13.5px', lineHeight: 1.6, color: 'var(--color-ink)' }}>
+                    <span style={{ color: 'var(--color-ink-faint)', marginRight: '6px' }}>{CN_DATE(p.date)}</span>
+                    {p.title}
+                    {lab && <span className="font-serif" style={{ marginLeft: '7px', color: lab.c, border: `1px solid ${lab.c}`, borderRadius: '3px', padding: '0 5px', fontSize: '10.5px' }}>{lab.t}</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', lineHeight: 1.7, color: 'var(--color-ink-soft)', marginTop: '2px' }}>{p.detail}</div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
 }
 
 function ItemRow({
@@ -171,6 +218,10 @@ export default function ResultView({
       </blockquote>
 
       {data.prep && data.prep.length > 0 && <PrepCard notes={data.prep} />}
+      {(() => {
+        const ph = phenomena(city, data.days.map((d) => ({ date: d.date })), weather)
+        return ph.length > 0 ? <PhenomenaCard list={ph} /> : null
+      })()}
 
       {data.days.map((day, d) => (
         <section key={d} className="mb-10">

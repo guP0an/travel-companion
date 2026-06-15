@@ -10,6 +10,11 @@ export interface DayWeather {
   pop: number // 降水概率 %（可能为 0）
   icon: string
   text: string
+  sunrise: string // 当地 HH:MM，可空 ""
+  sunset: string // 当地 HH:MM，可空 ""
+  clear: boolean // 天空通透（晴/多云，适合看落日/星空）
+  lat?: number
+  lon?: number
 }
 
 // WMO weather code → emoji + 中文
@@ -46,20 +51,27 @@ export async function fetchWeather(city: string, dates: string[]): Promise<Recor
   const end = valid[valid.length - 1]
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}` +
-    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
     `&timezone=auto&start_date=${start}&end_date=${end}`
   const r = await fetch(url)
   if (!r.ok) return {}
   const d = (await r.json()) as any
   const days: string[] = d.daily?.time || []
   const out: Record<string, DayWeather> = {}
+  const hhmm = (iso: string) => (iso && iso.includes('T') ? iso.split('T')[1].slice(0, 5) : '')
   days.forEach((date: string, i: number) => {
     const code = d.daily.weather_code?.[i] ?? 0
     const tMax = Math.round(d.daily.temperature_2m_max?.[i])
     const tMin = Math.round(d.daily.temperature_2m_min?.[i])
     if (Number.isNaN(tMax) || Number.isNaN(tMin)) return
     const { icon, text } = describe(code)
-    out[date] = { date, tMax, tMin, code, pop: d.daily.precipitation_probability_max?.[i] ?? 0, icon, text }
+    out[date] = {
+      date, tMax, tMin, code, pop: d.daily.precipitation_probability_max?.[i] ?? 0, icon, text,
+      sunrise: hhmm(d.daily.sunrise?.[i] || ''),
+      sunset: hhmm(d.daily.sunset?.[i] || ''),
+      clear: code <= 2, // 0晴 1,2多云
+      lat: geo.lat, lon: geo.lon,
+    }
   })
   return out
 }
