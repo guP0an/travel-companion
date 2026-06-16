@@ -156,9 +156,6 @@ export default function PlanForm({
 
   return (
     <div className="mb-9">
-      <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--color-ink-faint)', marginBottom: '14px' }}>
-        {hasPlan ? '想改就跟丸丸说一句，比如：6月20号加个夜市、删掉清水寺' : '告诉丸丸去哪、几天、预算、几个人，丸丸给你安排行程'}
-      </div>
       {/* 干净的多行输入（内容自动撑开） */}
       <textarea
         value={destination}
