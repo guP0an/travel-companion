@@ -143,6 +143,9 @@ async function readBody(req: any): Promise<any> {
   })
 }
 
+// DeepSeek 生成较慢，给足执行时长（Hobby 上限 60s）
+export const config = { maxDuration: 60 }
+
 // 线上 serverless 入口：POST /api/ai，按 body.op 分发
 export default async function handler(req: any, res: any) {
   res.setHeader('content-type', 'application/json')
