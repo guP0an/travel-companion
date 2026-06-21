@@ -1,5 +1,5 @@
-import { extractBookings } from './_deepseek'
-import { readBody } from './_body'
+import { extractBookings } from './_deepseek.js'
+import { readBody } from './_body.js'
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
