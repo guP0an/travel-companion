@@ -2,11 +2,30 @@ import { useEffect, useState } from 'react'
 import { getCheckin, saveCheckin, countCheckins, uploadPhotos } from '../lib/db'
 import { badge } from '../lib/growth'
 
+// 点评分两面：推荐(好)与踩坑(坑)。沿用 checkins.review 一个字段存 JSON，零迁移。
+function parseReview(raw: string): { pros: string; cons: string } {
+  if (!raw) return { pros: '', cons: '' }
+  try {
+    const o = JSON.parse(raw)
+    if (o && typeof o === 'object' && ('pros' in o || 'cons' in o)) return { pros: o.pros || '', cons: o.cons || '' }
+  } catch {
+    /* 旧的纯文本点评，并入"推荐" */
+  }
+  return { pros: raw, cons: '' }
+}
+function packReview(pros: string, cons: string): string {
+  const p = pros.trim()
+  const c = cons.trim()
+  return p || c ? JSON.stringify({ pros: p, cons: c }) : ''
+}
+
 export default function SpotDetail({ name, city, onClose, onSaved }: { name: string; city: string; onClose: () => void; onSaved?: () => void }) {
   const spot = (city ? city + ' ' : '') + name
   const mapUrl = `https://uri.amap.com/search?keyword=${encodeURIComponent(spot)}`
   const [rating, setRating] = useState(0)
-  const [review, setReview] = useState('')
+  const [pros, setPros] = useState('') // 推荐
+  const [cons, setCons] = useState('') // 踩坑
+  const [tab, setTab] = useState<'pros' | 'cons'>('pros')
   const [checked, setChecked] = useState(false)
   const [photos, setPhotos] = useState<string[]>([]) // 云端已存的照片 URL
   const [newFiles, setNewFiles] = useState<File[]>([]) // 本次新选、尚未上传
@@ -20,7 +39,9 @@ export default function SpotDetail({ name, city, onClose, onSaved }: { name: str
       .then((c) => {
         if (c) {
           setRating(c.rating || 0)
-          setReview(c.review || '')
+          const r = parseReview(c.review || '')
+          setPros(r.pros)
+          setCons(r.cons)
           setChecked(!!c.checked_at)
           setPhotos(c.photos || [])
         }
@@ -49,7 +70,7 @@ export default function SpotDetail({ name, city, onClose, onSaved }: { name: str
         setNewFiles([])
         setPreviews([])
       }
-      await saveCheckin({ spot, rating: rating || null, review: review.trim(), checked: true, photos: allPhotos })
+      await saveCheckin({ spot, rating: rating || null, review: packReview(pros, cons), checked: true, photos: allPhotos })
       setChecked(true)
       const n = wasNew ? total + 1 : total
       setTotal(n)
@@ -97,14 +118,37 @@ export default function SpotDetail({ name, city, onClose, onSaved }: { name: str
           ))}
         </div>
 
-        {/* 评论 */}
-        <div className="mt-5" style={{ fontSize: '12px', color: 'var(--color-ink-faint)', marginBottom: '4px' }}>评论</div>
+        {/* 点评：推荐 / 踩坑 两面 */}
+        <div className="mt-5 flex items-center gap-1" style={{ fontSize: '12px', color: 'var(--color-ink-faint)', marginBottom: '8px' }}>
+          <span>留句话给后来人</span>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          {([
+            { k: 'pros', label: '推荐', emoji: '👍', color: 'var(--color-qing)', has: !!pros.trim() },
+            { k: 'cons', label: '踩坑', emoji: '⚠️', color: 'var(--color-seal)', has: !!cons.trim() },
+          ] as const).map((t) => (
+            <button
+              key={t.k}
+              onClick={() => setTab(t.k)}
+              className="font-serif"
+              style={{
+                flex: 1, padding: '7px 0', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px',
+                border: tab === t.k ? `1px solid ${t.color}` : '1px solid var(--color-line)',
+                background: tab === t.k ? (t.k === 'pros' ? 'var(--color-qing-soft)' : '#F6E6E2') : 'transparent',
+                color: tab === t.k ? t.color : 'var(--color-ink-soft)',
+              }}
+            >
+              {t.emoji} {t.label}
+              {t.has && <span style={{ marginLeft: '5px', color: t.color }}>·</span>}
+            </button>
+          ))}
+        </div>
         <textarea
-          value={review}
-          onChange={(e) => setReview(e.target.value)}
-          placeholder="写点什么…"
+          value={tab === 'pros' ? pros : cons}
+          onChange={(e) => (tab === 'pros' ? setPros(e.target.value) : setCons(e.target.value))}
+          placeholder={tab === 'pros' ? '哪儿好——风景、吃食、体验，安利给后来人…' : '哪儿要当心——排队、宰客、难找、货不对板，替人避个雷…'}
           className="font-serif"
-          style={{ fieldSizing: 'content', width: '100%', minHeight: '44px', border: '1px solid var(--color-line)', borderRadius: '8px', background: 'var(--color-paper-2)', padding: '8px 10px', outline: 'none', resize: 'none', fontSize: '14px', color: 'var(--color-ink)', lineHeight: 1.7 } as React.CSSProperties}
+          style={{ fieldSizing: 'content', width: '100%', minHeight: '52px', border: `1px solid ${tab === 'pros' ? 'var(--color-qing)' : 'var(--color-seal)'}`, borderRadius: '8px', background: 'var(--color-paper-2)', padding: '8px 10px', outline: 'none', resize: 'none', fontSize: '14px', color: 'var(--color-ink)', lineHeight: 1.7 } as React.CSSProperties}
         />
 
         {/* 照片 */}
