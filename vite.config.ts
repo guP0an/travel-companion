@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { generate, extractBookings, revise } from './api/_deepseek'
+import { generate, extractBookings, revise } from './api/ai'
 
 function readJson(req: any): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -24,49 +24,26 @@ function deepseekApi(env: Record<string, string>): Plugin {
   return {
     name: 'deepseek-api',
     configureServer(server) {
-      server.middlewares.use('/api/plan', async (req: any, res: any) => {
+      // 单一入口 /api/ai，按 op 分发——与线上 serverless 完全一致
+      server.middlewares.use('/api/ai', async (req: any, res: any) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
           res.end('Method Not Allowed')
           return
         }
         res.setHeader('content-type', 'application/json')
+        let op = ''
         try {
           const body = await readJson(req)
-          res.end(JSON.stringify(await generate(body, env)))
+          op = body.op
+          if (op === 'plan') return res.end(JSON.stringify(await generate(body, env)))
+          if (op === 'extract') return res.end(JSON.stringify({ bookings: await extractBookings(String(body.text || ''), env) }))
+          if (op === 'revise') return res.end(JSON.stringify(await revise(body, env)))
+          res.statusCode = 400
+          res.end(JSON.stringify({ ok: false, error: 'unknown op: ' + op }))
         } catch (e) {
-          res.end(JSON.stringify({ ok: false, friendlyMessage: '丸丸这会儿有点忙，稍后再让我排一次好吗～', error: String((e as Error).message) }))
-        }
-      })
-
-      server.middlewares.use('/api/extract', async (req: any, res: any) => {
-        if (req.method !== 'POST') {
-          res.statusCode = 405
-          res.end('Method Not Allowed')
-          return
-        }
-        res.setHeader('content-type', 'application/json')
-        try {
-          const body = await readJson(req)
-          const bookings = await extractBookings(String(body.text || ''), env)
-          res.end(JSON.stringify({ bookings }))
-        } catch (e) {
-          res.end(JSON.stringify({ ok: false, friendlyMessage: '这张图没读清，手动填一下也行～', error: String((e as Error).message) }))
-        }
-      })
-
-      server.middlewares.use('/api/revise', async (req: any, res: any) => {
-        if (req.method !== 'POST') {
-          res.statusCode = 405
-          res.end('Method Not Allowed')
-          return
-        }
-        res.setHeader('content-type', 'application/json')
-        try {
-          const body = await readJson(req)
-          res.end(JSON.stringify(await revise(body, env)))
-        } catch (e) {
-          res.end(JSON.stringify({ ok: false, friendlyMessage: '丸丸没改明白，换句话说说看～', error: String((e as Error).message) }))
+          const fm = op === 'extract' ? '这张图没读清，手动填一下也行～' : op === 'revise' ? '丸丸没改明白，换句话说说看～' : '丸丸这会儿有点忙，稍后再让我排一次好吗～'
+          res.end(JSON.stringify({ ok: false, friendlyMessage: fm, error: String((e as Error).message) }))
         }
       })
     },

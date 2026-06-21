@@ -1,4 +1,5 @@
-// 丸丸的 DeepSeek 调用逻辑（框架无关）。本地 dev 由 vite 中间件调用，线上由 Vercel serverless 调用。
+// 丸丸的 AI 接口——单一自包含 serverless 函数（零跨文件 import，绕开 Vercel ESM 解析坑）。
+// 本地 dev 由 vite 中间件直接调用下面的具名导出；线上由 default handler 按 body.op 分发。
 // key 永远只在服务端（env），绝不进前端 bundle。
 
 export const SYSTEM_PROMPT = `你是「丸丸」，一个温柔、贴心、记得用户脾气的旅行管家、旅伴，不是冷冰冰的工具。
@@ -116,4 +117,50 @@ export async function revise(body: any, env: Env) {
     { role: 'user', content: user },
   ], { temperature: 0.5, max_tokens: 8192 })
   return JSON.parse(content)
+}
+
+// 读取请求体（Vercel Node 多数已解析进 req.body，兜底读流）
+async function readBody(req: any): Promise<any> {
+  if (req.body && typeof req.body === 'object') return req.body
+  if (typeof req.body === 'string') {
+    try {
+      return JSON.parse(req.body)
+    } catch {
+      return {}
+    }
+  }
+  return await new Promise((resolve) => {
+    let d = ''
+    req.on('data', (c: any) => (d += c))
+    req.on('end', () => {
+      try {
+        resolve(d ? JSON.parse(d) : {})
+      } catch {
+        resolve({})
+      }
+    })
+    req.on('error', () => resolve({}))
+  })
+}
+
+// 线上 serverless 入口：POST /api/ai，按 body.op 分发
+export default async function handler(req: any, res: any) {
+  res.setHeader('content-type', 'application/json')
+  if (req.method !== 'POST') {
+    res.statusCode = 405
+    return res.end(JSON.stringify({ ok: false, error: 'Method Not Allowed' }))
+  }
+  let op = ''
+  try {
+    const body = await readBody(req)
+    op = body.op
+    if (op === 'plan') return res.end(JSON.stringify(await generate(body, process.env)))
+    if (op === 'extract') return res.end(JSON.stringify({ bookings: await extractBookings(String(body.text || ''), process.env) }))
+    if (op === 'revise') return res.end(JSON.stringify(await revise(body, process.env)))
+    res.statusCode = 400
+    return res.end(JSON.stringify({ ok: false, error: 'unknown op: ' + op }))
+  } catch (e) {
+    const fm = op === 'extract' ? '这张图没读清，手动填一下也行～' : op === 'revise' ? '丸丸没改明白，换句话说说看～' : '丸丸这会儿有点忙，稍后再让我排一次好吗～'
+    res.end(JSON.stringify({ ok: false, friendlyMessage: fm, error: String((e as Error).message) }))
+  }
 }

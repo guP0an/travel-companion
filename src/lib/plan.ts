@@ -54,10 +54,10 @@ export function parseBookingPrice(fields: Record<string, string>): number | null
 
 // 上传截图 OCR 出的文字 → 代理 → DeepSeek 结构化提取出预订信息（可编辑）。
 export async function extractBookings(text: string): Promise<Booking[]> {
-  const res = await fetch('/api/extract', {
+  const res = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ op: 'extract', text }),
   })
   const data = await res.json()
   if (data && data.ok === false) throw new Error(data.friendlyMessage || '解析失败')
@@ -66,10 +66,10 @@ export async function extractBookings(text: string): Promise<Booking[]> {
 
 // 用一句话让丸丸修改已有行程。
 export async function revisePlan(plan: Itinerary, instruction: string): Promise<Itinerary> {
-  const res = await fetch('/api/revise', {
+  const res = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ plan, instruction }),
+    body: JSON.stringify({ op: 'revise', plan, instruction }),
   })
   const data = await res.json()
   if (data && data.ok === false) throw new Error(data.friendlyMessage || '改不动')
@@ -78,10 +78,10 @@ export async function revisePlan(plan: Itinerary, instruction: string): Promise<
 
 // 调本地代理 → DeepSeek，返回丸丸现排的行程 JSON。
 export async function generatePlan(input: PlanInput): Promise<Itinerary> {
-  const res = await fetch('/api/plan', {
+  const res = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ op: 'plan', ...input }),
   })
   const data = await res.json()
   if (data && data.ok === false) {
