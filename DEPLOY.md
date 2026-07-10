@@ -9,7 +9,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 - 本地已关联 Vercel 项目 `travel-companion`（项目 ID 已保存在未提交的 `.vercel/project.json`）。
 - Vercel 已连接 GitHub，`master` 推送会自动部署；最新生产部署已验证为 Ready。
 - 正式访问地址：`https://travel-companion-two-murex.vercel.app`，页面渲染冒烟检查已通过。
-- Vercel Production 环境变量名称已配置；当前 Supabase 项目域名无法解析，登录、云端保存和完整业务链路仍需在更换有效项目后核验。
+- Vercel Production 已切换到 Supabase 项目 `travel-wanwan`；认证服务健康检查为 200，线上登录已从网络错误恢复为正常鉴权响应。
 
 ## ⚠️ 上线前必做：轮换 DeepSeek key
 现用 key 曾在聊天里明文出现，**上线前去 DeepSeek 控制台重置一个新 key**，用新 key 配到 Vercel。
@@ -23,7 +23,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 | `DEEPSEEK_API_KEY` | （新轮换的 key） | 服务端调用 DeepSeek，**不带 VITE_ 前缀，不进前端** |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | |
-| `VITE_SUPABASE_URL` | `https://eeyivxbmrxoxrlbvulxd.supabase.co` | 前端连 Supabase（anon key 受 RLS 保护，可公开） |
+| `VITE_SUPABASE_URL` | `https://pdlpiugjluwztvbpaukf.supabase.co` | 前端连 Supabase（publishable key 受 RLS 保护，可公开） |
 | `VITE_SUPABASE_ANON_KEY` | （Supabase 项目的 anon key） | |
 
 > `VITE_` 开头的会在打包时写进前端（公开，没关系）；其余只在 serverless 运行时读取。
@@ -45,7 +45,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 ---
 
 ## 三、上线后还要做
-1. **Supabase 放行线上域名**：Supabase 控制台 → Authentication → URL Configuration，把 `https://你的域名.vercel.app` 加进 Site URL / Redirect URLs，否则邮箱登录回跳会失败。
+1. **Supabase 放行线上域名**：Supabase 控制台 → Authentication → URL Configuration，把 `https://travel-companion-two-murex.vercel.app` 加进 Site URL / Redirect URLs，否则邮箱确认回跳会失败。
 2. **建表/建桶**（若还没跑）：`supabase/schema.sql`、`supabase/storage.sql`。
 3. **防刷（公开前必做）**：当前任何人都能调 `/api/ai` 烧 DeepSeek 额度。至少增加登录校验或简单频率限制。
 4. **冒烟测试**：登录 → 生成 → 一句话修改 → 收藏 → 导出 PNG → 账本 → 打卡/照片。
