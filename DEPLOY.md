@@ -5,7 +5,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 
 ## 当前部署状态（2026-07-10）
 
-- GitHub 仓库已存在：`gukong225-pixel/travel-companion`，发布分支为 `master`。
+- GitHub 仓库已存在：`guP0an/travel-companion`，发布分支为 `master`。
 - 本地已关联 Vercel 项目 `travel-companion`（项目 ID 已保存在未提交的 `.vercel/project.json`）。
 - 生产构建已通过；正式域名、环境变量、Supabase 回跳和完整业务链路仍需在本轮发布后核验。
 
@@ -33,7 +33,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 当前采用 **GitHub + Vercel 自动部署**：
 
 1. 把 `master` 推送到 `origin`。
-2. 在 Vercel 项目 `travel-companion` 中确认 Git Repository 指向 `gukong225-pixel/travel-companion`，Production Branch 为 `master`。
+2. 在 Vercel 项目 `travel-companion` 中确认 Git Repository 指向 `guP0an/travel-companion`，Production Branch 为 `master`。
 3. Framework Preset 选择 Vite；Build Command 使用 `pnpm build`（或自动检测），Output Directory 为 `dist`。
 4. 在 Settings → Environment Variables 配齐上面 5 个变量，覆盖 Production；需要预览环境时再同步到 Preview。
 5. 触发 Production Deployment，记录最终 `https://*.vercel.app` 域名。
