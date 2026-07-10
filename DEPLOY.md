@@ -7,7 +7,9 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 
 - GitHub 仓库已存在：`guP0an/travel-companion`，发布分支为 `master`。
 - 本地已关联 Vercel 项目 `travel-companion`（项目 ID 已保存在未提交的 `.vercel/project.json`）。
-- 生产构建已通过；正式域名、环境变量、Supabase 回跳和完整业务链路仍需在本轮发布后核验。
+- Vercel 已连接 GitHub，`master` 推送会自动部署；最新生产部署已验证为 Ready。
+- 正式访问地址：`https://travel-companion-two-murex.vercel.app`，页面渲染冒烟检查已通过。
+- Vercel Production 环境变量名称已配置；当前 Supabase 项目域名无法解析，登录、云端保存和完整业务链路仍需在更换有效项目后核验。
 
 ## ⚠️ 上线前必做：轮换 DeepSeek key
 现用 key 曾在聊天里明文出现，**上线前去 DeepSeek 控制台重置一个新 key**，用新 key 配到 Vercel。
