@@ -1,4 +1,5 @@
 import type { Itinerary } from '../types/itinerary'
+import { supabase } from './supabase'
 
 export interface PlanInput {
   destination: string
@@ -20,6 +21,21 @@ export interface Booking {
   title: string
   fields: Record<string, string>
   recorded?: { amount: number; category: string } // 已记入账本（前端标记）
+}
+
+async function aiRequest(body: Record<string, unknown>) {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('请先登录后再让丸丸规划～')
+
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  const dataBody = await res.json()
+  if (!res.ok || dataBody?.ok === false) throw new Error(dataBody?.friendlyMessage || '丸丸这会儿有点忙，稍后再试试～')
+  return dataBody
 }
 
 // 票务类型 → 账本分类（对齐 Ledger 的 CATS）
@@ -54,38 +70,18 @@ export function parseBookingPrice(fields: Record<string, string>): number | null
 
 // 上传截图 OCR 出的文字 → 代理 → DeepSeek 结构化提取出预订信息（可编辑）。
 export async function extractBookings(text: string): Promise<Booking[]> {
-  const res = await fetch('/api/ai', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ op: 'extract', text }),
-  })
-  const data = await res.json()
-  if (data && data.ok === false) throw new Error(data.friendlyMessage || '解析失败')
+  const data = await aiRequest({ op: 'extract', text })
   return (data.bookings || []) as Booking[]
 }
 
 // 用一句话让丸丸修改已有行程。
 export async function revisePlan(plan: Itinerary, instruction: string): Promise<Itinerary> {
-  const res = await fetch('/api/ai', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ op: 'revise', plan, instruction }),
-  })
-  const data = await res.json()
-  if (data && data.ok === false) throw new Error(data.friendlyMessage || '改不动')
+  const data = await aiRequest({ op: 'revise', plan, instruction })
   return data as Itinerary
 }
 
 // 调本地代理 → DeepSeek，返回丸丸现排的行程 JSON。
 export async function generatePlan(input: PlanInput): Promise<Itinerary> {
-  const res = await fetch('/api/ai', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ op: 'plan', ...input }),
-  })
-  const data = await res.json()
-  if (data && data.ok === false) {
-    throw new Error(data.friendlyMessage || '生成失败')
-  }
+  const data = await aiRequest({ op: 'plan', ...input })
   return data as Itinerary
 }

@@ -72,6 +72,84 @@ export function buildUser(input: any): string {
 }
 
 type Env = Record<string, string | undefined>
+type FetchLike = typeof fetch
+
+export class ApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+export function createRateLimiter(limit: number, windowMs: number) {
+  const buckets = new Map<string, { count: number; resetAt: number }>()
+  return (key: string, now = Date.now()) => {
+    const current = buckets.get(key)
+    if (!current || current.resetAt <= now) {
+      buckets.set(key, { count: 1, resetAt: now + windowMs })
+      return true
+    }
+    if (current.count >= limit) return false
+    current.count += 1
+    return true
+  }
+}
+
+const allowAiRequest = createRateLimiter(10, 10 * 60 * 1000)
+
+export async function verifyAccessToken(authHeader: string | undefined, env: Env, fetcher: FetchLike = fetch) {
+  const token = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1]
+  if (!token) throw new ApiError(401, 'missing access token')
+
+  const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL
+  const key = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY
+  if (!url || !key) throw new ApiError(500, 'Supabase server config missing')
+
+  const response = await fetcher(`${url.replace(/\/$/, '')}/auth/v1/user`, {
+    headers: { apikey: key, authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) throw new ApiError(401, 'invalid access token')
+  const user = await response.json() as { id?: string }
+  if (!user.id) throw new ApiError(401, 'invalid user')
+  return user as { id: string }
+}
+
+const isString = (value: unknown): value is string => typeof value === 'string'
+
+export function assertItinerary(value: any) {
+  if (!value || typeof value !== 'object') throw new Error('AI 返回格式不完整')
+  if (!value.meta || !isString(value.meta.destination)) throw new Error('AI 返回缺少目的地')
+  if (!Number.isInteger(value.meta.days) || value.meta.days < 1 || value.meta.days > 15) throw new Error('AI 返回天数无效')
+  if (!Array.isArray(value.days) || value.days.length !== value.meta.days) throw new Error('AI 返回行程天数不完整')
+  if (!isString(value.greeting) || !isString(value.closing) || !isString(value.disclaimer)) throw new Error('AI 返回文案不完整')
+  for (const [dayIndex, day] of value.days.entries()) {
+    if (!day || day.dayIndex !== dayIndex + 1 || !isString(day.theme) || !Array.isArray(day.segments)) throw new Error('AI 返回每日结构无效')
+    const periods = new Set(day.segments.map((segment: any) => segment?.period))
+    if (!['morning', 'afternoon', 'evening'].every((period) => periods.has(period))) throw new Error('AI 返回缺少时段')
+    for (const segment of day.segments) {
+      if (!Array.isArray(segment.items)) throw new Error('AI 返回时段内容无效')
+      for (const item of segment.items) {
+        if (!item || !['sight', 'food', 'transport', 'rest', 'activity'].includes(item.type) || !isString(item.name)) {
+          throw new Error('AI 返回行程条目无效')
+        }
+      }
+    }
+  }
+  return value
+}
+
+export function validateApiBody(body: any) {
+  if (!body || typeof body !== 'object') throw new ApiError(400, 'invalid body')
+  if (!['plan', 'extract', 'revise'].includes(body.op)) throw new ApiError(400, 'unknown op')
+  if (body.op === 'plan') {
+    if (!Number.isInteger(body.days) || body.days < 1 || body.days > 15) throw new ApiError(400, 'days must be 1-15')
+    if (!isString(body.destination) || !body.destination.trim() || body.destination.length > 100) throw new ApiError(400, 'invalid destination')
+  }
+  if (body.op === 'extract' && (!isString(body.text) || !body.text.trim() || body.text.length > 20_000)) throw new ApiError(400, 'invalid OCR text')
+  if (body.op === 'revise' && (!isString(body.instruction) || !body.instruction.trim() || body.instruction.length > 2_000 || !body.plan)) throw new ApiError(400, 'invalid revision')
+}
 
 async function chat(env: Env, messages: any[], opts: { temperature: number; max_tokens: number }) {
   const key = env.DEEPSEEK_API_KEY
@@ -83,7 +161,7 @@ async function chat(env: Env, messages: any[], opts: { temperature: number; max_
     headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
     body: JSON.stringify({ model, messages, response_format: { type: 'json_object' }, ...opts }),
   })
-  if (!r.ok) throw new Error('DeepSeek HTTP ' + r.status + ' ' + (await r.text()))
+  if (!r.ok) throw new Error('DeepSeek HTTP ' + r.status)
   const data = (await r.json()) as any
   const content = data.choices?.[0]?.message?.content
   if (!content) throw new Error('DeepSeek 返回空内容')
@@ -95,7 +173,7 @@ export async function generate(input: any, env: Env) {
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: buildUser(input) },
   ], { temperature: 1, max_tokens: 8192 })
-  return JSON.parse(content)
+  return assertItinerary(JSON.parse(content))
 }
 
 export const EXTRACT_PROMPT = `你从用户上传截图 OCR 出来的文字里，提取出行预订信息（火车/高铁票、机票、酒店预订等，可能不止一条）。
@@ -116,7 +194,7 @@ export async function revise(body: any, env: Env) {
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: user },
   ], { temperature: 0.5, max_tokens: 8192 })
-  return JSON.parse(content)
+  return assertItinerary(JSON.parse(content))
 }
 
 // 读取请求体（Vercel Node 多数已解析进 req.body，兜底读流）
@@ -146,8 +224,7 @@ async function readBody(req: any): Promise<any> {
 // DeepSeek 生成较慢，给足执行时长（Hobby 上限 60s）
 export const config = { maxDuration: 60 }
 
-// 线上 serverless 入口：POST /api/ai，按 body.op 分发
-export default async function handler(req: any, res: any) {
+export async function handleApiRequest(req: any, res: any, env: Env, fetcher: FetchLike = fetch) {
   res.setHeader('content-type', 'application/json')
   if (req.method !== 'POST') {
     res.statusCode = 405
@@ -155,15 +232,36 @@ export default async function handler(req: any, res: any) {
   }
   let op = ''
   try {
+    const contentLength = Number(req.headers?.['content-length'] || 0)
+    if (contentLength > 1_000_000) throw new ApiError(413, 'request too large')
+    const authHeader = req.headers?.authorization || req.headers?.Authorization
+    const user = await verifyAccessToken(authHeader, env, fetcher)
+    if (!allowAiRequest(user.id)) throw new ApiError(429, 'rate limit exceeded')
+
     const body = await readBody(req)
     op = body.op
-    if (op === 'plan') return res.end(JSON.stringify(await generate(body, process.env)))
-    if (op === 'extract') return res.end(JSON.stringify({ bookings: await extractBookings(String(body.text || ''), process.env) }))
-    if (op === 'revise') return res.end(JSON.stringify(await revise(body, process.env)))
-    res.statusCode = 400
-    return res.end(JSON.stringify({ ok: false, error: 'unknown op: ' + op }))
+    validateApiBody(body)
+    if (op === 'plan') return res.end(JSON.stringify(await generate(body, env)))
+    if (op === 'extract') return res.end(JSON.stringify({ bookings: await extractBookings(body.text, env) }))
+    return res.end(JSON.stringify(await revise(body, env)))
   } catch (e) {
-    const fm = op === 'extract' ? '这张图没读清，手动填一下也行～' : op === 'revise' ? '丸丸没改明白，换句话说说看～' : '丸丸这会儿有点忙，稍后再让我排一次好吗～'
-    res.end(JSON.stringify({ ok: false, friendlyMessage: fm, error: String((e as Error).message) }))
+    const status = e instanceof ApiError ? e.status : 502
+    res.statusCode = status
+    const fm = status === 401
+      ? '请先登录后再让丸丸规划～'
+      : status === 429
+        ? '请求有点频繁，歇一会儿再找丸丸吧～'
+        : op === 'extract'
+          ? '这张图没读清，手动填一下也行～'
+          : op === 'revise'
+            ? '丸丸没改明白，换句话说说看～'
+            : '丸丸这会儿有点忙，稍后再让我排一次好吗～'
+    console.error('[api/ai]', { op, status, error: (e as Error).message })
+    return res.end(JSON.stringify({ ok: false, friendlyMessage: fm }))
   }
+}
+
+// 线上 serverless 入口：POST /api/ai，按 body.op 分发
+export default async function handler(req: any, res: any) {
+  return handleApiRequest(req, res, process.env)
 }
