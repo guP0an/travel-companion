@@ -48,10 +48,58 @@ export const SYSTEM_PROMPT = `你是「丸丸」，一个温柔、贴心、记�
 ② **无障碍与步行别忽略**：大城市地铁部分老站无电梯、换乘要走很长通道（香港尤其明显），凡涉及地铁/长距离步行，且同行有老人/小孩/推车或带大件行李时，在 butlerTip 提醒"该站无电梯需走楼梯/通道较长，留体力或考虑打车"。
 ③ **住宿缺口必须查**：逐夜检查"这一晚人在哪个城市、有没有落脚处"。若票据或行程显示某晚会在某城过夜、却没有酒店/住宿安排、用户也没提供，**必须在 prep 里加一条醒目提醒**（category 用"其他"），明确写出，例如"⚠️ X月X日晚你到深圳还没订住宿——要么先订深圳酒店，要么确认当晚过关回香港（含过关时间）"。**绝不默认住宿已安排、绝不跳过这个缺口**。`
 
-export function buildUser(input: any): string {
+export interface WeatherFact {
+  date: string
+  text: string
+  tMin: number
+  tMax: number
+  precipitationProbability: number
+}
+
+export interface PoiFact {
+  query: string
+  name: string
+  id: string
+  location: string
+  address: string
+  city: string
+  openingHours: string
+  rating: string
+}
+
+export interface RouteFact {
+  from: string
+  to: string
+  distanceMeters: number
+  durationMinutes: number
+}
+
+export interface TravelFacts {
+  weather: WeatherFact[]
+  pois: PoiFact[]
+  routes: RouteFact[]
+}
+
+const emptyFacts = (): TravelFacts => ({ weather: [], pois: [], routes: [] })
+
+export function redactSensitiveText(text: string): string {
+  return text
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[邮箱已隐藏]')
+    .replace(/(?<!\d)1[3-9]\d{9}(?!\d)/g, '[手机号已隐藏]')
+    .replace(/(?<!\d)\d{17}[\dXx](?!\d)/g, '[证件号已隐藏]')
+    .replace(/((?:订单号|证件号|身份证号?|护照号|手机号|联系人|入住人|乘车人|旅客姓名|姓名)\s*[:：]?\s*)[^\n，,；;]+/g, '$1[已隐藏]')
+}
+
+export function buildUser(input: any, facts: TravelFacts = emptyFacts()): string {
   const tier = input.budgetTier || '未指定'
   const tags = Array.isArray(input.travelerTags) ? input.travelerTags.join('、') : ''
   const must = Array.isArray(input.mustVisit) ? input.mustVisit.join('、') : (input.mustVisit || '')
+  const weather = facts.weather.length
+    ? `已查询到的天气事实（只按这些数据写天气，不要自行补充）：${facts.weather.map((w) => `${w.date} ${w.text} ${w.tMin}~${w.tMax}℃，降水概率${w.precipitationProbability}%`).join('；')}。`
+    : ''
+  const pois = facts.pois.length
+    ? `已核验的地点事实：${facts.pois.map((p) => `${p.name}（${p.address || p.city || '地址未返回'}${p.openingHours ? `，营业时间${p.openingHours}` : ''}）`).join('；')}。未出现在此列表的地点仍需保守表述，不要编精确地址和营业时间。`
+    : ''
   return [
     input.destination ? `我想去${input.destination}玩${input.days}天。` : `帮我安排${input.days}天的行程。`,
     input.departureDate ? `出发日期${input.departureDate}。` : '',
@@ -62,17 +110,21 @@ export function buildUser(input: any): string {
     tags ? `我的喜好：${tags}。` : '',
     input.travelerNote ? `补充：${input.travelerNote}。` : '',
     input.ticketText
-      ? `我已确认的票务/酒店预订如下：「${input.ticketText}」。请把它们**作为行程里的具体条目**排进对应日期：
+      ? `我已确认的票务/酒店预订如下：「${redactSensitiveText(input.ticketText)}」。请把它们**作为行程里的具体条目**排进对应日期：
   - 交通（火车/高铁/机票）：用 type:"transport" 的条目，name 写明车次或航班+出发→到达（如"G304 香港西九龙→武汉"），timeHint 写出发时间，放在该日期当天最前；到达当天别排太满、留接驳时间，返程当天预留赶车余量。
   - 酒店：用 type:"rest" 的条目，name 写"入住 {酒店名}"，在入住当天加一条、离店当天可加退房，area 写酒店位置。
   - 行程天数与起止日期以这些票为准；如果我没单独说目的地，就以票里的到达城市为目的地。`
       : '',
+    weather,
+    pois,
     '请按你管家的风格给我排一版，并严格按规定的 JSON 结构输出。',
   ].filter(Boolean).join('')
 }
 
 type Env = Record<string, string | undefined>
 type FetchLike = typeof fetch
+
+const factRequestInit = () => ({ signal: AbortSignal.timeout(5_000) })
 
 export class ApiError extends Error {
   status: number
@@ -118,6 +170,162 @@ export async function verifyAccessToken(authHeader: string | undefined, env: Env
 
 const isString = (value: unknown): value is string => typeof value === 'string'
 
+const wmoText = (code: number) => {
+  if (code === 0) return '晴'
+  if (code <= 2) return '多云'
+  if (code === 3) return '阴'
+  if (code === 45 || code === 48) return '有雾'
+  if (code >= 51 && code <= 67) return '有雨'
+  if (code >= 71 && code <= 77) return '有雪'
+  if (code >= 80 && code <= 82) return '阵雨'
+  if (code === 85 || code === 86) return '阵雪'
+  if (code >= 95) return '雷雨'
+  return '天气情况未知'
+}
+
+export function dateRange(start: string, days: number): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !Number.isInteger(days) || days < 1 || days > 15) return []
+  const first = new Date(`${start}T00:00:00Z`)
+  if (Number.isNaN(first.getTime())) return []
+  return Array.from({ length: days }, (_, index) => {
+    const current = new Date(first)
+    current.setUTCDate(first.getUTCDate() + index)
+    return current.toISOString().slice(0, 10)
+  })
+}
+
+export async function collectWeatherFacts(input: any, fetcher: FetchLike = fetch): Promise<WeatherFact[]> {
+  const dates = dateRange(input.departureDate || '', input.days)
+  if (!input.destination || dates.length === 0) return []
+  try {
+    const geoResponse = await fetcher(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(input.destination)}&count=1&language=zh&format=json`, factRequestInit())
+    if (!geoResponse.ok) return []
+    const geo = await geoResponse.json() as any
+    const hit = geo.results?.[0]
+    if (!hit) return []
+    const forecastUrl =
+      `https://api.open-meteo.com/v1/forecast?latitude=${hit.latitude}&longitude=${hit.longitude}` +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
+      `&timezone=auto&start_date=${dates[0]}&end_date=${dates[dates.length - 1]}`
+    const forecastResponse = await fetcher(forecastUrl, factRequestInit())
+    if (!forecastResponse.ok) return []
+    const forecast = await forecastResponse.json() as any
+    return (forecast.daily?.time || []).flatMap((date: string, index: number) => {
+      const tMax = Math.round(forecast.daily.temperature_2m_max?.[index])
+      const tMin = Math.round(forecast.daily.temperature_2m_min?.[index])
+      if (!dates.includes(date) || Number.isNaN(tMax) || Number.isNaN(tMin)) return []
+      const code = Number(forecast.daily.weather_code?.[index] ?? -1)
+      return [{
+        date,
+        text: wmoText(code),
+        tMin,
+        tMax,
+        precipitationProbability: Number(forecast.daily.precipitation_probability_max?.[index] ?? 0),
+      }]
+    })
+  } catch {
+    return []
+  }
+}
+
+export async function searchAmapPoi(query: string, region: string, key: string, fetcher: FetchLike = fetch): Promise<PoiFact | null> {
+  if (!query.trim() || !key) return null
+  try {
+    const params = new URLSearchParams({ key, keywords: query.trim(), region: region.trim(), page_size: '1', show_fields: 'business' })
+    const response = await fetcher(`https://restapi.amap.com/v5/place/text?${params}`, factRequestInit())
+    if (!response.ok) return null
+    const data = await response.json() as any
+    const poi = data.status === '1' ? data.pois?.[0] : null
+    if (!poi?.id || !poi?.location) return null
+    return {
+      query,
+      name: poi.name || query,
+      id: poi.id,
+      location: poi.location,
+      address: Array.isArray(poi.address) ? poi.address.join('') : (poi.address || ''),
+      city: poi.cityname || '',
+      openingHours: poi.business?.opentime_week || poi.business?.opentime_today || '',
+      rating: poi.business?.rating || '',
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function fetchWalkingRoute(from: PoiFact, to: PoiFact, key: string, fetcher: FetchLike = fetch): Promise<RouteFact | null> {
+  try {
+    const params = new URLSearchParams({
+      key,
+      origin: from.location,
+      destination: to.location,
+      origin_id: from.id,
+      destination_id: to.id,
+      show_fields: 'cost',
+    })
+    const response = await fetcher(`https://restapi.amap.com/v5/direction/walking?${params}`, factRequestInit())
+    if (!response.ok) return null
+    const data = await response.json() as any
+    const path = data.status === '1' ? data.route?.paths?.[0] : null
+    const distanceMeters = Number(path?.distance)
+    const durationSeconds = Number(path?.cost?.duration || path?.duration)
+    if (!Number.isFinite(distanceMeters) || !Number.isFinite(durationSeconds)) return null
+    return { from: from.name, to: to.name, distanceMeters, durationMinutes: Math.max(1, Math.round(durationSeconds / 60)) }
+  } catch {
+    return null
+  }
+}
+
+const itineraryPlaceNames = (plan: any): string[] => {
+  const names = (plan.days || []).flatMap((day: any) =>
+    (day.segments || []).flatMap((segment: any) =>
+      (segment.items || [])
+        .filter((item: any) => ['sight', 'food', 'activity', 'rest'].includes(item.type))
+        .map((item: any) => item.name),
+    ),
+  )
+  const validNames = names.filter((name: unknown): name is string => isString(name) && name.trim().length > 1) as string[]
+  return [...new Set<string>(validNames)].slice(0, 12)
+}
+
+const itineraryPlacePairs = (plan: any): Array<[string, string]> =>
+  (plan.days || []).flatMap((day: any) => {
+    const names = (day.segments || []).flatMap((segment: any) =>
+      (segment.items || [])
+        .filter((item: any) => ['sight', 'food', 'activity', 'rest'].includes(item.type))
+        .map((item: any) => item.name)
+        .filter((name: unknown): name is string => isString(name) && name.trim().length > 1),
+    )
+    return names.slice(1).map((name: string, index: number) => [names[index], name] as [string, string])
+  })
+
+export async function collectAmapFacts(plan: any, input: any, env: Env, fetcher: FetchLike = fetch): Promise<Pick<TravelFacts, 'pois' | 'routes'>> {
+  const key = env.AMAP_WEB_SERVICE_KEY
+  if (!key) return { pois: [], routes: [] }
+  const queries = [...new Set([
+    ...(Array.isArray(input.mustVisit) ? input.mustVisit : []),
+    ...itineraryPlaceNames(plan),
+  ])].slice(0, 12)
+  const pois = (await Promise.all(queries.map((query) => searchAmapPoi(query, input.destination || '', key, fetcher))))
+    .filter((poi): poi is PoiFact => Boolean(poi))
+  const poiByQuery = new Map(pois.map((poi) => [poi.query, poi]))
+  const routes = (await Promise.all(itineraryPlacePairs(plan).slice(0, 8).map(([fromName, toName]) => {
+    const from = poiByQuery.get(fromName)
+    const to = poiByQuery.get(toName)
+    return from && to ? fetchWalkingRoute(from, to, key, fetcher) : null
+  }))).filter((route): route is RouteFact => Boolean(route))
+  return { pois, routes }
+}
+
+export function groundingIssues(plan: any, facts: TravelFacts): string[] {
+  const verifiedQueries = new Set(facts.pois.flatMap((poi) => [poi.query, poi.name]))
+  const missing = itineraryPlaceNames(plan).filter((name) => !verifiedQueries.has(name))
+  const longWalks = facts.routes.filter((route) => route.distanceMeters > 3500 || route.durationMinutes > 60)
+  return [
+    ...(missing.length ? [`以下地点未被地图数据核验：${missing.join('、')}。不要写精确地址/营业时间，并将 confidence 调为 medium 或 low。`] : []),
+    ...longWalks.map((route) => `${route.from}到${route.to}步行约${route.distanceMeters}米/${route.durationMinutes}分钟，需要改为公共交通、打车或调整同日顺序。`),
+  ]
+}
+
 export function assertItinerary(value: any) {
   if (!value || typeof value !== 'object') throw new Error('AI 返回格式不完整')
   if (!value.meta || !isString(value.meta.destination)) throw new Error('AI 返回缺少目的地')
@@ -151,12 +359,12 @@ export function validateApiBody(body: any) {
   if (body.op === 'revise' && (!isString(body.instruction) || !body.instruction.trim() || body.instruction.length > 2_000 || !body.plan)) throw new ApiError(400, 'invalid revision')
 }
 
-async function chat(env: Env, messages: any[], opts: { temperature: number; max_tokens: number }) {
+async function chat(env: Env, messages: any[], opts: { temperature: number; max_tokens: number }, fetcher: FetchLike = fetch) {
   const key = env.DEEPSEEK_API_KEY
   const base = env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
   const model = env.DEEPSEEK_MODEL || 'deepseek-chat'
   if (!key) throw new Error('DEEPSEEK_API_KEY 未配置')
-  const r = await fetch(`${base}/chat/completions`, {
+  const r = await fetcher(`${base}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
     body: JSON.stringify({ model, messages, response_format: { type: 'json_object' }, ...opts }),
@@ -168,32 +376,50 @@ async function chat(env: Env, messages: any[], opts: { temperature: number; max_
   return content as string
 }
 
-export async function generate(input: any, env: Env) {
+export async function generate(input: any, env: Env, fetcher: FetchLike = fetch) {
+  const weather = await collectWeatherFacts(input, fetcher)
   const content = await chat(env, [
     { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: buildUser(input) },
-  ], { temperature: 1, max_tokens: 8192 })
-  return assertItinerary(JSON.parse(content))
+    { role: 'user', content: buildUser(input, { weather, pois: [], routes: [] }) },
+  ], { temperature: 1, max_tokens: 8192 }, fetcher)
+  const draft = assertItinerary(JSON.parse(content))
+  if (!env.AMAP_WEB_SERVICE_KEY) return draft
+  const amap = await collectAmapFacts(draft, input, env, fetcher)
+  if (amap.pois.length === 0) return draft
+  const facts = { weather, ...amap }
+  const issues = groundingIssues(draft, facts)
+  if (issues.length === 0) return draft
+
+  const repairPrompt = `这是当前行程 JSON：\n${JSON.stringify(draft)}\n\n这是工具核验结果：\n${issues.join('\n')}\n\n请只修复上述问题，保留其余内容，输出完整同结构 JSON。不得新增工具未证实的精确地址、营业时间或票价。`
+  const repaired = await chat(env, [
+    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'user', content: repairPrompt },
+  ], { temperature: 0.3, max_tokens: 8192 }, fetcher)
+  return assertItinerary(JSON.parse(repaired))
 }
 
 export const EXTRACT_PROMPT = `你从用户上传截图 OCR 出来的文字里，提取出行预订信息（火车/高铁票、机票、酒店预订等，可能不止一条）。
 严格输出 JSON：{"bookings":[{"type":"train|flight|hotel|other","title":"一句话标题","fields":{"中文键":"值"}}]}。
-fields 只放确实读到的，键用中文，例如：出发、到达、日期、车次、航班、出发时间、到达时间、入住、离店、酒店、地址、房型、价格、订单号、入住人。读不到就不要编、不要输出空字段。`
+fields 只放规划所需且确实读到的，键用中文，例如：出发、到达、日期、车次、航班、出发时间、到达时间、入住、离店、酒店、地址、房型、价格。不要输出姓名、手机号、证件号、订单号等个人信息；读不到就不要编、不要输出空字段。`
 
-export async function extractBookings(text: string, env: Env) {
+export async function extractBookings(text: string, env: Env, fetcher: FetchLike = fetch) {
   const content = await chat(env, [
     { role: 'system', content: EXTRACT_PROMPT },
-    { role: 'user', content: '截图 OCR 文字：「' + text + '」' },
-  ], { temperature: 0.2, max_tokens: 2048 })
-  return JSON.parse(content).bookings || []
+    { role: 'user', content: '截图 OCR 文字：「' + redactSensitiveText(text) + '」' },
+  ], { temperature: 0.2, max_tokens: 2048 }, fetcher)
+  const bookings = JSON.parse(content).bookings || []
+  return bookings.map((booking: any) => ({
+    ...booking,
+    fields: Object.fromEntries(Object.entries(booking.fields || {}).filter(([key]) => !/姓名|手机号|证件|身份证|护照|订单/.test(key))),
+  }))
 }
 
-export async function revise(body: any, env: Env) {
+export async function revise(body: any, env: Env, fetcher: FetchLike = fetch) {
   const user = `这是当前行程 JSON：\n${JSON.stringify(body.plan)}\n\n请按以下要求修改，并输出修改后的【完整】同结构 Itinerary JSON（只动需要改的，其余原样保留；时间/日期保持合理、按时间排序）：${body.instruction}`
   const content = await chat(env, [
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: user },
-  ], { temperature: 0.5, max_tokens: 8192 })
+  ], { temperature: 0.5, max_tokens: 8192 }, fetcher)
   return assertItinerary(JSON.parse(content))
 }
 
@@ -241,9 +467,9 @@ export async function handleApiRequest(req: any, res: any, env: Env, fetcher: Fe
     const body = await readBody(req)
     op = body.op
     validateApiBody(body)
-    if (op === 'plan') return res.end(JSON.stringify(await generate(body, env)))
-    if (op === 'extract') return res.end(JSON.stringify({ bookings: await extractBookings(body.text, env) }))
-    return res.end(JSON.stringify(await revise(body, env)))
+    if (op === 'plan') return res.end(JSON.stringify(await generate(body, env, fetcher)))
+    if (op === 'extract') return res.end(JSON.stringify({ bookings: await extractBookings(body.text, env, fetcher) }))
+    return res.end(JSON.stringify(await revise(body, env, fetcher)))
   } catch (e) {
     const status = e instanceof ApiError ? e.status : 502
     res.statusCode = status
