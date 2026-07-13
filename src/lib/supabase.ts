@@ -11,3 +11,17 @@ if (!supabaseReady) {
 }
 
 export const supabase = createClient(url || 'https://placeholder.supabase.co', anon || 'placeholder-anon-key')
+
+export async function isPhoneAuthEnabled(): Promise<boolean> {
+  if (!supabaseReady) return false
+  try {
+    const response = await fetch(`${url.replace(/\/$/, '')}/auth/v1/settings`, {
+      headers: { apikey: anon },
+    })
+    if (!response.ok) return false
+    const settings = await response.json() as { external?: { phone?: boolean } }
+    return settings.external?.phone === true
+  } catch {
+    return false
+  }
+}

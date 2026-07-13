@@ -13,6 +13,11 @@ import {
   validateApiBody,
   verifyAccessToken,
 } from '../node_modules/.tmp-tsnode/api/ai.js'
+import {
+  friendlyAuthError,
+  maskAccount,
+  normalizeMainlandPhone,
+} from '../node_modules/.tmp-tsnode/shared/auth.js'
 
 const itinerary = {
   meta: { destination: '京都', days: 1 },
@@ -129,4 +134,13 @@ test('Amap POI and walking route responses become structured facts', async () =>
     return new Response(JSON.stringify({ status: '1', route: { paths: [{ distance: '1800', cost: { duration: '1500' } }] } }), { status: 200 })
   })
   assert.deepEqual(route, { from: '西湖风景名胜区', to: '断桥', distanceMeters: 1800, durationMinutes: 25 })
+})
+
+test('mainland phone auth values are normalized and masked safely', () => {
+  assert.equal(normalizeMainlandPhone('138 0013 8000'), '+8613800138000')
+  assert.equal(normalizeMainlandPhone('+86 13800138000'), '+8613800138000')
+  assert.equal(normalizeMainlandPhone('12345'), null)
+  assert.equal(maskAccount('+8613800138000', null), '+86 138****8000')
+  assert.equal(friendlyAuthError('Invalid login credentials'), '账号或密码不正确')
+  assert.equal(friendlyAuthError('Unsupported phone provider'), '手机短信服务尚未开通，请暂时使用邮箱登录')
 })

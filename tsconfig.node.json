@@ -11,5 +11,5 @@
     "strict": true,
     "outDir": "node_modules/.tmp-tsnode"
   },
-  "include": ["vite.config.ts", "api/**/*.ts"]
+  "include": ["vite.config.ts", "api/**/*.ts", "shared/**/*.ts"]
 }

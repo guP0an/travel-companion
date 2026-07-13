@@ -12,6 +12,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 - Vercel Production 已切换到 Supabase 项目 `travel-wanwan`；认证服务健康检查为 200，线上登录已从网络错误恢复为正常鉴权响应。
 - Supabase 四张业务表、RLS、照片桶、正式 Site URL 和密码重置回跳均已配置并验证。
 - `/api/ai` 已强制登录并有基础限流；模型返回、天气事实和可选高德事实层均有自动化测试。
+- 手机验证码、手机密码和邮箱三种认证界面已完成；页面会读取 Supabase Auth Settings，Phone Provider 未启用时自动保持邮箱入口。
 
 ## ⚠️ 上线前必做：轮换 DeepSeek key
 现用 key 曾在聊天里明文出现，**上线前去 DeepSeek 控制台重置一个新 key**，用新 key 配到 Vercel。
@@ -52,5 +53,13 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 2. **配置高德 Key（可选）**：申请 Web 服务 API Key，写入 `AMAP_WEB_SERVICE_KEY` 后重新部署。
 3. **升级防刷**：当前已有登录校验和实例内基础限流；扩大内测前改成持久化限流。
 4. **冒烟测试**：登录 → 生成 → 一句话修改 → 收藏 → 导出 PNG → 账本 → 打卡/照片。
+
+### 开通手机号登录
+
+1. 在短信供应商完成实名认证、短信签名和验证码模板审核。国内手机号优先选国内供应商并通过 Supabase Send SMS Hook 接入；使用 Supabase 原生供应商时按控制台要求填写凭据。
+2. Supabase → Authentication → Providers → Phone，配置短信供应商后启用 Phone Provider。
+3. 保持 OTP 最短发送间隔不低于 60 秒，并配置 CAPTCHA、单手机号/IP 频率限制和费用告警。
+4. 无需修改前端：页面探测到 `external.phone=true` 后自动开放“手机验证码 / 手机密码”，并把手机验证码作为默认入口。
+5. 用一个真实测试手机号验证：验证码登录、手机密码注册、手机密码登录、忘记密码、重复发送限制和账号数据隔离。
 
 完成后，`https://xxx.vercel.app` 这个链接发给任何人都能用。
