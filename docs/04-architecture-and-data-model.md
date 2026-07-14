@@ -1,5 +1,7 @@
 # 04 · 技术架构 + 行程数据模型
 
+> 本文保留早期架构决策与行程 JSON 设计。当前线上实现已经加入 Supabase、统一 `/api/ai`、Kimi、天气预警与地图事实层；工程现状以 [09 当前技术实现](09-technical-implementation.md) 为准。
+
 > 状态：草稿 · 2026-06-13 · 作者：赛巴斯蒂安 + lord
 > 本文是 Phase 1（① 行程规划）的工程地基：技术架构图、行程 JSON 数据模型、数据真实性策略、Key 安全。
 > 被 [PRD-v0.1.md](PRD-v0.1.md)（§6 技术方案）与 [02-competitive-analysis.md](02-competitive-analysis.md)（§6 真实性）引用。

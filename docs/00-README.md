@@ -48,14 +48,17 @@
 
 | 文档 | 内容 |
 |------|------|
+| [01 丸丸产品说明（当前真源）](01-product-definition.md) | **先读这份**：丸丸是什么、给谁用、怎么用、当前能力与下一目标 |
 | [PRD-v0.1](PRD-v0.1.md) | 产品需求：定位、MVP 范围、功能、路线图 |
 | [02 竞品分析](02-competitive-analysis.md) | 对手死穴与我们的那条缝 |
 | [03 用户故事与流程](03-user-stories-and-flow.md) | 画像、用户故事、流程图 |
-| [04 技术架构 + 数据模型](04-architecture-and-data-model.md) | 架构图、行程 JSON 模型、真实性、导出与配图 |
+| [04 早期架构决策 + 数据模型](04-architecture-and-data-model.md) | 早期决策、行程 JSON 模型、真实性；当前工程实现看 09 |
 | [05 管家 Prompt 设计](05-butler-prompt-design.md) | 人设、提问引导对话、行程生成 prompt、防编造 |
 | [06 管家提问库](06-butler-questions.md) | 提问引导式要问的全部问题（分档） |
 | [07 模块与分期](07-product-modules-and-phasing.md) | 三模块、分期上线策略 |
 | [08 旅行全周期与护城河](08-travel-lifecycle-and-moat.md) | 行前/行中/行后、记忆飞轮、差异化 |
+| [09 当前技术实现](09-technical-implementation.md) | **工程真源**：当前架构、代码地图、API、数据流、安全与发布 |
+| [10 用户记忆与 RAG](10-memory-and-rag.md) | RAG 边界、数据模型、检索排序、隐私、评测与实施顺序 |
 
 ## 当前进度（2026-07-14）
 
@@ -73,7 +76,7 @@
 
 **已验证**：
 - 前端与 Node 端 TypeScript 检查通过。
-- Vite 生产构建通过（123 个模块）。
+- Vite 生产构建通过（124 个模块）。
 - 本地 5 个必需环境变量已配置，`.env.local` 未被 Git 跟踪。
 - Vercel Production 已切换到有效的 `travel-wanwan` Supabase 项目；线上站点、认证健康检查和登录错误响应均已验证。
 - 密码找回流程、AI 接口登录鉴权、每用户基础限流、请求边界校验和友好错误降级已完成。
@@ -89,6 +92,7 @@
 - 官方灾害预警代码已完成；线上启用仍需在 Vercel 配置和风天气专属 API Host 与 API Key。
 - 规划入口仍是“一段话直接生成”，尚未实现 PRD 中的 2–4 轮提问引导。
 - 历史行程与打卡数据尚未反哺用户偏好，真正的“越用越懂你”未闭环。
+- Kimi 识图代码、Key 与 Production 部署已完成，仍需登录后上传真实票务截图完成最终冒烟。
 - 模型结果已有运行时结构校验、友好降级和基于地图问题的条件式修复；普通格式错误尚未增加通用自动重试。
 - 当前限流是单个 serverless 实例内的基础保护；扩大内测前应接持久化限流，并轮换 DeepSeek Key。
 - 记忆地图、游记、论坛和语音属于 Phase 2/3，本阶段不展开。
