@@ -36,7 +36,7 @@ function WeatherAlertBand({ alerts }: { alerts: WeatherAlertNotice[] }) {
 function PrepCard({ notes }: { notes: PrepNote[] }) {
   const [open, setOpen] = useState(true)
   return (
-    <section className="mb-8" style={{ border: '1px solid var(--color-line)', borderRadius: '10px', background: 'var(--color-paper-2)', padding: '14px 16px' }}>
+    <section className="mb-8" style={{ border: '1px solid var(--color-line)', borderRadius: '6px', background: 'var(--color-paper-2)', padding: '14px 16px' }}>
       <button onClick={() => setOpen((v) => !v)} className="font-serif" style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0, color: 'var(--color-ink)', fontSize: '15px' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', background: 'var(--color-seal)', color: '#F7F3EA', borderRadius: '3px', fontSize: '10px' }}>嘱</span>
@@ -89,7 +89,7 @@ const CHANCE_LABEL: Record<Phenomenon['chance'], { t: string; c: string } | null
 function HighlightCard({ list }: { list: Highlight[] }) {
   const [open, setOpen] = useState(true)
   return (
-    <section className="mb-8" style={{ border: '1px solid var(--color-seal)', borderRadius: '10px', background: 'var(--color-paper-2)', padding: '14px 16px' }}>
+    <section className="mb-8" style={{ border: '1px solid var(--color-seal)', borderRadius: '6px', background: 'var(--color-paper-2)', padding: '14px 16px' }}>
       <button onClick={() => setOpen((v) => !v)} className="font-serif" style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0, color: 'var(--color-ink)', fontSize: '15px' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', background: 'var(--color-seal)', color: '#F7F3EA', borderRadius: '3px', fontSize: '10px' }}>限</span>
@@ -267,7 +267,7 @@ export default function ResultView({
       {data.highlights && data.highlights.length > 0 && <HighlightCard list={data.highlights} />}
 
       {data.days.map((day, d) => (
-        <section key={d} className="mb-10">
+        <section key={d} id={`trip-day-${day.dayIndex}`} className="mb-10 trip-day-section">
           <div className="flex items-baseline gap-3 pb-2.5 mb-1" style={{ borderBottom: '1px solid var(--color-line)' }}>
             <span style={{ fontSize: '10.5px', letterSpacing: '0.22em', color: 'var(--color-ink-faint)' }}>DAY</span>
             <span className="font-serif" style={{ fontSize: '28px', lineHeight: 1, color: 'var(--color-ink)' }}>{CN[day.dayIndex] || day.dayIndex}</span>

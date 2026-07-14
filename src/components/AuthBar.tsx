@@ -41,13 +41,17 @@ export default function AuthBar() {
   const [countdown, setCountdown] = useState(0)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [expanded, setExpanded] = useState(() => new URLSearchParams(window.location.search).get('reset') === '1')
   const [mode, setMode] = useState<ViewMode>(() =>
     new URLSearchParams(window.location.search).get('reset') === '1' ? 'update-password' : 'login',
   )
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setMode('update-password')
+      if (event === 'PASSWORD_RECOVERY') {
+        setMode('update-password')
+        setExpanded(true)
+      }
     })
     return () => data.subscription.unsubscribe()
   }, [])
@@ -199,19 +203,39 @@ export default function AuthBar() {
 
   if (session && mode !== 'update-password') {
     return (
-      <div className="flex items-center justify-between mb-6" style={{ fontSize: '12px', color: 'var(--color-ink-faint)' }}>
-        <span>已登录 · {maskAccount(session.user.phone, session.user.email)}</span>
-        <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-soft)', textDecoration: 'underline', textUnderlineOffset: '3px' }}>
+      <div className="account-signed">
+        <span className="account-label">已登录 · {maskAccount(session.user.phone, session.user.email)}</span>
+        <button onClick={() => supabase.auth.signOut()} title="退出当前账号">
           退出
         </button>
       </div>
     )
   }
 
+  const panel = (content: React.ReactNode, title = '登录丸丸') => (
+    <div className="account-control">
+      <button className="account-trigger" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
+        {mode === 'update-password' ? '设置密码' : '登录 / 注册'}
+      </button>
+      {expanded && (
+        <div className="auth-popover">
+          <div className="auth-panel-head">
+            <div>
+              <div className="section-eyebrow">WANWAN ACCOUNT</div>
+              <div className="auth-panel-title font-serif">{title}</div>
+            </div>
+            <button className="icon-close" onClick={() => setExpanded(false)} title="关闭账户面板" aria-label="关闭账户面板">×</button>
+          </div>
+          {content}
+        </div>
+      )}
+    </div>
+  )
+
   if (mode === 'update-password') {
-    return (
-      <div className="mb-7">
-        <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--color-ink-faint)', marginBottom: '12px' }}>设置一个新的登录密码</div>
+    return panel(
+      <div>
+        <div className="auth-helper">设置一个新的登录密码</div>
         <div className="auth-fields">
           <input value={pw} onChange={(event) => setPw(event.target.value)} type="password" autoComplete="new-password" placeholder="新密码（至少 6 位）" style={underline} />
           <input value={confirmPw} onChange={(event) => setConfirmPw(event.target.value)} type="password" autoComplete="new-password" placeholder="再输入一次" style={underline} />
@@ -220,29 +244,31 @@ export default function AuthBar() {
           <button onClick={updatePassword} disabled={busy} className="font-serif disabled:opacity-60" style={primaryButton}>更新密码</button>
           {msg && <span className="auth-message">{msg}</span>}
         </div>
-      </div>
+      </div>,
+      '设置新密码',
     )
   }
 
   if (mode === 'email-reset') {
-    return (
-      <div className="mb-7">
-        <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--color-ink-faint)', marginBottom: '12px' }}>输入注册邮箱，丸丸会发一封重置邮件</div>
+    return panel(
+      <div>
+        <div className="auth-helper">输入注册邮箱，丸丸会发一封重置邮件</div>
         <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="注册邮箱" style={{ ...underline, width: '100%' }} />
         <div className="auth-actions">
           <button onClick={requestEmailReset} disabled={busy} className="font-serif disabled:opacity-60" style={primaryButton}>发送重置邮件</button>
           <button onClick={() => { setMode('login'); setMsg('') }} className="auth-text-button">返回登录</button>
           {msg && <span className="auth-message">{msg}</span>}
         </div>
-      </div>
+      </div>,
+      '找回密码',
     )
   }
 
   const showOtpInput = method === 'phone-otp' || otpPurpose === 'register-password' || otpPurpose === 'reset-password'
 
-  return (
-    <div className="mb-7">
-      <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--color-ink-faint)', marginBottom: '10px' }}>登录后行程存到云端 · 跨设备可见</div>
+  return panel(
+    <div>
+      <div className="auth-helper">登录后行程存到云端 · 跨设备可见</div>
       <div className="auth-tabs" role="tablist" aria-label="登录方式">
         {([
           ['phone-otp', '手机验证码'],
@@ -305,6 +331,6 @@ export default function AuthBar() {
         )}
         {msg && <span className="auth-message">{msg}</span>}
       </div>
-    </div>
+    </div>,
   )
 }

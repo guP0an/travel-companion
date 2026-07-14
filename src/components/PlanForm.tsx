@@ -11,15 +11,7 @@ const TYPE_LABEL: Record<string, string> = {
   other: '其他',
 }
 
-// 一串丸子：每颗丸子一个字、一种颜色
-const DANGO: [string, string][] = [
-  ['让', '#3E9E9E'],
-  ['丸', '#E68A3C'],
-  ['丸', '#DB6A86'],
-  ['排', '#7FA85C'],
-  ['一', '#E0B23C'],
-  ['版', '#8E7BC4'],
-]
+const DANGO = ['#3E9E9E', '#E68A3C', '#DB6A86', '#7FA85C', '#E0B23C', '#8E7BC4']
 
 const PACE = [
   { v: 'packed', label: '紧凑' },
@@ -155,9 +147,10 @@ export default function PlanForm({
   }
 
   return (
-    <div className="mb-9">
+    <div className="plan-form">
       {/* 干净的多行输入（内容自动撑开） */}
       <textarea
+        id="planner-input"
         value={destination}
         onChange={(e) => setDestination(e.target.value)}
         placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : '告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…'}
@@ -297,37 +290,14 @@ export default function PlanForm({
       ) : (
         <button
           onClick={go}
-          className="w-full mt-7"
-          style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+          className="plan-primary font-serif"
           aria-label="让丸丸排一版"
         >
-          <svg viewBox="0 0 290 58" width="100%" style={{ display: 'block' }}>
-            <defs>
-              <radialGradient id="dgloss" cx="36%" cy="26%" r="75%">
-                <stop offset="0%" stopColor="#fff" stopOpacity="0.6" />
-                <stop offset="60%" stopColor="#fff" stopOpacity="0" />
-              </radialGradient>
-              <radialGradient id="dshade" cx="50%" cy="104%" r="80%">
-                <stop offset="0%" stopColor="#000" stopOpacity="0.2" />
-                <stop offset="55%" stopColor="#000" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            {/* 竹签 */}
-            <line x1="6" y1="29" x2="284" y2="29" stroke="#C9A06A" strokeWidth="4" strokeLinecap="round" />
-            {DANGO.map(([c, col], i) => {
-              const cx = 33 + i * 44
-              return (
-                <g key={i}>
-                  <circle cx={cx} cy="29" r="22" fill={col} />
-                  <circle cx={cx} cy="29" r="22" fill="url(#dshade)" />
-                  <circle cx={cx} cy="29" r="22" fill="url(#dgloss)" />
-                  <text x={cx} y="36" textAnchor="middle" fontSize="20" fontWeight="500" fill="#fff" className="font-serif">
-                    {c}
-                  </text>
-                </g>
-              )
-            })}
-          </svg>
+          <span className="plan-primary-mark" aria-hidden>
+            {DANGO.map((color) => <span key={color} style={{ background: color }} />)}
+          </span>
+          <span>{hasPlan ? '请丸丸调整行程' : '让丸丸排一版'}</span>
+          <span aria-hidden>→</span>
         </button>
       )}
       {err && <div className="mt-2" style={{ fontSize: '12px', color: 'var(--color-seal)' }}>{err}</div>}

@@ -27,6 +27,8 @@ export default function App() {
   const [generated, setGenerated] = useState(false)
   const [trips, setTrips] = useState<SavedItinerary[]>([])
   const printRef = useRef<HTMLDivElement>(null)
+  const plannerRef = useRef<HTMLElement>(null)
+  const resultRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (!session) {
@@ -75,53 +77,35 @@ export default function App() {
     a.click()
   }
 
-  const btnEdge: React.CSSProperties = {
-    width: '60%',
-    padding: '13px',
-    border: '1px solid var(--color-qing)',
-    color: 'var(--color-qing)',
-    background: 'transparent',
-    borderRadius: '999px',
-    fontSize: '14px',
-    letterSpacing: '0.06em',
-    cursor: 'pointer',
+  const showResult = (it: typeof data) => {
+    setData(it)
+    setGenerated(true)
+    if (window.matchMedia('(max-width: 820px)').matches) {
+      window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+    }
   }
 
   return (
-    <div className="min-h-full flex justify-center px-6 py-12">
-      <div className="w-full max-w-[460px]">
-        {/* 顶部：丸丸 + 朱砂印 */}
-        <header className="flex items-center gap-3 mb-8">
-          <Mascot size={46} hop />
-          <div>
-            <div className="font-serif flex items-center gap-2" style={{ fontSize: '19px', color: 'var(--color-ink)', letterSpacing: '0.04em' }}>
+    <div className="app-shell">
+      <header className="app-topbar">
+        <button className="brand-lockup" onClick={() => setView('plan')} aria-label="返回丸丸规划页">
+          <Mascot size={40} hop />
+          <span>
+            <span className="brand-name font-serif">
               丸丸
-              <span
-                className="font-serif"
-                aria-hidden
-                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '17px', height: '17px', background: 'var(--color-seal)', color: '#F7F3EA', borderRadius: '3px', fontSize: '10px' }}
-              >
-                印
-              </span>
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--color-ink-faint)', letterSpacing: '0.05em', marginTop: '1px' }}>
-              {data.meta.destination} · {data.meta.days} 天 · 已按你的脾气排好
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--color-qing)', letterSpacing: '0.04em', marginTop: '3px' }}>
-              丸丸 Lv.{g.lv} · {g.name}
-              {session && checkins > 0 ? ` · 打卡 ${checkins} 处` : ''}
-              {session && g.next != null && (
-                <span style={{ color: 'var(--color-ink-faint)' }}>{`（再打卡 ${g.next - checkins} 处升级）`}</span>
-              )}
-            </div>
-          </div>
-        </header>
+              <span className="brand-seal font-serif" aria-hidden>印</span>
+            </span>
+            <span className="brand-subtitle">你的旅行管家</span>
+          </span>
+        </button>
+        <div className="topbar-actions">
+          <CurrentCity />
+          <AuthBar />
+        </div>
+      </header>
 
-        <CurrentCity />
-
-        <AuthBar />
-
-        {view === 'saved' ? (
+      {view === 'saved' ? (
+        <main className="library-view">
           <SavedTrips
             trips={trips}
             onOpen={(it) => {
@@ -131,85 +115,104 @@ export default function App() {
             }}
             onBack={() => setView('plan')}
           />
-        ) : view === 'ledger' ? (
-          <Ledger onBack={() => setView('plan')} />
-        ) : (
-          <>
+        </main>
+      ) : view === 'ledger' ? (
+        <main className="library-view"><Ledger onBack={() => setView('plan')} /></main>
+      ) : (
+        <main className="planner-workspace">
+          <aside className="planner-sidebar" ref={plannerRef}>
+            <div className="planner-intro">
+              <div className="section-eyebrow">AI TRAVEL CONCIERGE</div>
+              <h1 className="font-serif">把想去的地方<br />交给丸丸</h1>
+              <p>说目的地，也可以只丢给我一张票。丸丸会结合天气、节奏和你的偏好，排成一份能直接出发的行程。</p>
+            </div>
             <PlanForm
               current={data}
               hasPlan={generated}
-              onResult={(it) => {
-                setData(it)
-                setGenerated(true)
-              }}
+              onResult={showResult}
               onReset={() => setGenerated(false)}
             />
+            <div className="planner-status">
+              丸丸 Lv.{g.lv} · {g.name}
+              {session && checkins > 0 ? ` · 打卡 ${checkins} 处` : ''}
+              {session && g.next != null && (
+                <span>{` · 再打卡 ${g.next - checkins} 处升级`}</span>
+              )}
+            </div>
+          </aside>
 
-            {session && (
-              <div className="flex items-center justify-between mb-2" style={{ fontSize: '12px', color: 'var(--color-ink-faint)' }}>
-                <span style={{ display: 'flex', gap: '16px' }}>
+          <section className="itinerary-workspace" ref={resultRef}>
+            <div className="itinerary-toolbar">
+              <div>
+                <div className="section-eyebrow">{generated ? 'YOUR ITINERARY' : 'PREVIEW'}</div>
+                <div className="itinerary-title font-serif">{data.meta.destination} · {data.meta.days} 天</div>
+                <div className="itinerary-meta">{generated ? '已按你的要求生成，可继续让丸丸调整' : '示例行程 · 生成后会替换成你的专属版本'}</div>
+              </div>
+              <div className="itinerary-actions">
+                {session && (
+                  <>
                   <button
                     onClick={openSaved}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-soft)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    className="toolbar-button"
                   >
                     <IcoScroll /> 我的行程 · {count ?? '…'} 份
                   </button>
                   <button
                     onClick={() => setView('ledger')}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-soft)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    className="toolbar-button"
                   >
                     <IcoCoin /> 账本
                   </button>
-                </span>
+                  <button onClick={onSave} disabled={saving} className="toolbar-button emphasized">
+                    {saving ? '收藏中…' : '收藏此程'}
+                  </button>
+                  </>
+                )}
                 <button
-                  onClick={onSave}
-                  disabled={saving}
-                  className="font-serif disabled:opacity-60"
-                  style={{ background: 'transparent', border: '1px solid var(--color-line)', borderRadius: '999px', padding: '5px 16px', fontSize: '12.5px', color: 'var(--color-ink)', cursor: 'pointer' }}
+                  onClick={() => setEditing((value) => !value)}
+                  className={`toolbar-button${editing ? ' active' : ''}`}
                 >
-                  {saving ? '收藏中…' : '收藏此程'}
+                  <IcoBrush /> {editing ? '完成编辑' : '编辑行程'}
                 </button>
               </div>
-            )}
-            {note && <div className="mb-2" style={{ fontSize: '12px', color: 'var(--color-qing)' }}>{note}</div>}
-
-            <div className="flex justify-end mb-1">
-              <button
-                onClick={() => setEditing((v) => !v)}
-                className="font-serif"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12.5px', color: editing ? 'var(--color-qing)' : 'var(--color-ink-soft)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-              >
-                <IcoBrush /> {editing ? '完成编辑' : '编辑行程'}
-              </button>
             </div>
+            {note && <div className="workspace-note">{note}</div>}
 
-            {/* 可导出的分享卡：带丸丸 + 标题 + 留白，避免裁切 */}
-            <div ref={printRef} style={{ background: PAPER, padding: '26px 22px' }}>
-              <div className="flex items-center gap-2.5 mb-1">
+            <nav className="day-quick-nav" aria-label="行程日期">
+              {data.days.map((day) => (
+                <a key={day.dayIndex} href={`#trip-day-${day.dayIndex}`}>
+                  第{day.dayIndex}天{day.date ? ` · ${day.date.slice(5)}` : ''}
+                </a>
+              ))}
+            </nav>
+
+            <div ref={printRef} className="itinerary-sheet" style={{ background: PAPER }}>
+              <div className="sheet-brand">
                 <Mascot size={34} />
                 <div>
-                  <div className="font-serif" style={{ fontSize: '17px', color: 'var(--color-ink)' }}>
+                  <div className="font-serif sheet-title">
                     {data.meta.destination} · {data.meta.days} 天
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)', letterSpacing: '0.06em' }}>
-                    丸丸 · 你的旅行管家
-                  </div>
+                  <div className="sheet-subtitle">丸丸 · 你的旅行管家</div>
                 </div>
               </div>
               <ResultView data={data} editing={editing} onChange={setData} onCheckin={() => countCheckins().then(setCheckins).catch(() => {})} />
             </div>
 
-            {/* 保存图片（去掉了 PDF） */}
-            <div className="flex justify-center mt-8">
-              <button onClick={exportImage} className="font-serif" style={btnEdge}>保存图片</button>
+            <div className="export-row">
+              <button onClick={exportImage} className="export-button font-serif">保存为分享图片</button>
             </div>
-          </>
-        )}
+            {generated && (
+              <div className="mobile-action-bar">
+                <button onClick={() => plannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>调整行程</button>
+                <button onClick={exportImage}>保存图片</button>
+              </div>
+            )}
+          </section>
+        </main>
+      )}
 
-        <footer className="mt-12 text-center" style={{ fontSize: '11px', color: 'var(--color-ink-faint)', letterSpacing: '0.08em' }}>
-          丸丸 · 你的旅行管家
-        </footer>
-      </div>
+      <footer className="app-footer">丸丸 · 你的旅行管家</footer>
     </div>
   )
 }

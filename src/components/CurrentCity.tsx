@@ -33,7 +33,7 @@ export default function CurrentCity() {
   }
 
   return (
-    <div className="mb-6" style={{ fontSize: '12.5px', color: 'var(--color-ink-soft)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+    <div className="current-city">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--color-qing)" aria-hidden style={{ flex: '0 0 auto' }}>
         <path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" />
       </svg>
