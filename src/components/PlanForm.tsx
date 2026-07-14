@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Itinerary } from '../types/itinerary'
-import { generatePlan, revisePlan, extractBookings, bookingCategory, parseBookingPrice, type PlanInput, type Booking } from '../lib/plan'
+import { generatePlan, revisePlan, extractBookings, extractBookingsFromImage, bookingCategory, parseBookingPrice, type PlanInput, type Booking } from '../lib/plan'
 import { addExpense } from '../lib/db'
 import { MascotThinking } from './Mascot'
 
@@ -57,6 +57,32 @@ export default function PlanForm({
       return n
     })
 
+  const compressForVision = async (file: File): Promise<string> => {
+    if (!file.type.startsWith('image/')) throw new Error('请选择图片文件')
+    if (file.size > 15 * 1024 * 1024) throw new Error('图片太大，请控制在 15MB 以内')
+    const url = URL.createObjectURL(file)
+    try {
+      const image = new Image()
+      image.src = url
+      await image.decode()
+      const maxSide = 1800
+      const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight))
+      const width = Math.max(1, Math.round(image.naturalWidth * scale))
+      const height = Math.max(1, Math.round(image.naturalHeight * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('浏览器无法处理这张图片')
+      context.fillStyle = '#fff'
+      context.fillRect(0, 0, width, height)
+      context.drawImage(image, 0, 0, width, height)
+      return canvas.toDataURL('image/jpeg', 0.82)
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  }
+
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     e.target.value = ''
@@ -64,6 +90,17 @@ export default function PlanForm({
     setOcrBusy(true)
     setErr('')
     try {
+      try {
+        const image = await compressForVision(f)
+        const visualBookings = await extractBookingsFromImage(image)
+        if (visualBookings.length > 0) {
+          await autoRecord(visualBookings)
+          setBookings((prev) => [...prev, ...visualBookings])
+          return
+        }
+      } catch {
+        // Kimi 未配置或暂时失败时，继续使用本地 OCR + DeepSeek。
+      }
       const Tesseract = (await import('tesseract.js')).default
       const { data } = await Tesseract.recognize(f, 'chi_sim+eng')
       const text = data.text.replace(/\s+/g, ' ').trim()
@@ -205,7 +242,7 @@ export default function PlanForm({
             paddingBottom: '1px',
           }}
         >
-          {ocrBusy ? '丸丸正在读截图…' : '＋ 上传票务截图，丸丸自己读（选填）'}
+          {ocrBusy ? '丸丸正在看截图…' : '＋ 上传票务截图，丸丸自己读（选填）'}
           <input type="file" accept="image/*" onChange={onFile} disabled={ocrBusy} style={{ display: 'none' }} />
         </label>
         {bookings.length > 0 && (
@@ -283,6 +320,7 @@ export default function PlanForm({
             </button>
           </div>
         )}
+        <div className="vision-privacy">图片会发送至 Kimi 识别，丸丸不保存原图；失败时自动改用本地 OCR。</div>
       </div>
 
       {busy ? (

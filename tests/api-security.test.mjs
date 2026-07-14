@@ -10,10 +10,12 @@ import {
   collectWeatherFacts,
   createRateLimiter,
   dateRange,
+  extractBookingsFromImage,
   fetchWalkingRoute,
   redactSensitiveText,
   searchAmapPoi,
   validateApiBody,
+  validateVisionDataUrl,
   verifyAccessToken,
 } from '../node_modules/.tmp-tsnode/api/ai.js'
 import {
@@ -78,8 +80,46 @@ test('access token is required and verified with Supabase', async () => {
 test('API body validation rejects oversized and invalid requests', () => {
   assert.throws(() => validateApiBody({ op: 'plan', destination: '京都', days: 0 }), ApiError)
   assert.throws(() => validateApiBody({ op: 'extract', text: 'x'.repeat(20_001) }), ApiError)
+  assert.throws(() => validateApiBody({ op: 'vision', image: 'https://example.com/ticket.png' }), ApiError)
   assert.throws(() => validateApiBody({ op: 'revise', plan: itinerary, instruction: '' }), ApiError)
   assert.doesNotThrow(() => validateApiBody({ op: 'plan', destination: '京都', days: 3 }))
+})
+
+test('Kimi vision request uses multimodal JSON mode and removes personal fields', async () => {
+  const image = `data:image/jpeg;base64,${Buffer.alloc(64, 1).toString('base64')}`
+  assert.equal(validateVisionDataUrl(image), image)
+  assert.throws(() => validateVisionDataUrl('data:image/svg+xml;base64,AAAA'), ApiError)
+
+  let request
+  const bookings = await extractBookingsFromImage(image, {
+    MOONSHOT_API_KEY: 'moonshot-test-key',
+    KIMI_VISION_MODEL: 'kimi-k2.6',
+  }, async (url, init) => {
+    request = { url, init }
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        bookings: [{
+          type: 'train',
+          title: 'G100 上海虹桥到北京南',
+          fields: { 日期: '2026-07-20', 车次: 'G100', 姓名: '测试用户', 订单号: 'secret-order' },
+        }],
+      }) } }],
+    }), { status: 200 })
+  })
+
+  assert.equal(request.url, 'https://api.moonshot.cn/v1/chat/completions')
+  assert.equal(request.init.headers.authorization, 'Bearer moonshot-test-key')
+  const body = JSON.parse(request.init.body)
+  assert.equal(body.model, 'kimi-k2.6')
+  assert.deepEqual(body.thinking, { type: 'disabled' })
+  assert.deepEqual(body.response_format, { type: 'json_object' })
+  assert.equal(body.messages[1].content[0].type, 'image_url')
+  assert.equal(body.messages[1].content[0].image_url.url, image)
+  assert.deepEqual(bookings, [{
+    type: 'train',
+    title: 'G100 上海虹桥到北京南',
+    fields: { 日期: '2026-07-20', 车次: 'G100' },
+  }])
 })
 
 test('itinerary validation requires all three daily periods', () => {

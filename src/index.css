@@ -178,6 +178,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .plan-primary:hover { background: #171612; transform: translateY(-1px); }
 .plan-primary-mark { display: inline-flex; gap: 3px; }
 .plan-primary-mark span { width: 6px; height: 6px; border-radius: 50%; }
+.vision-privacy {
+  margin-top: 8px;
+  color: var(--color-ink-faint);
+  font-size: 9.5px;
+  line-height: 1.55;
+}
 .planner-status {
   margin-top: 24px;
   padding-top: 16px;

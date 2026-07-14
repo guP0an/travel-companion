@@ -28,6 +28,9 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 | `DEEPSEEK_API_KEY` | （新轮换的 key） | 服务端调用 DeepSeek，**不带 VITE_ 前缀，不进前端** |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | |
+| `MOONSHOT_API_KEY` | （Kimi 开放平台服务端 Key） | 使用 `kimi-k2.6` 识别票务、机票和酒店截图 |
+| `KIMI_BASE_URL` | `https://api.moonshot.cn/v1` | Kimi OpenAI 兼容接口 |
+| `KIMI_VISION_MODEL` | `kimi-k2.6` | 多模态识图模型 |
 | `AMAP_WEB_SERVICE_KEY` | （可选，高德 Web 服务 Key） | 服务端核验 POI 和同日相邻路线；未配置时自动跳过 |
 | `QWEATHER_API_HOST` | （可选，和风天气控制台分配的专属 Host） | 查询目的地当前官方灾害预警 |
 | `QWEATHER_API_KEY` | （可选，和风天气 API Key） | 仅服务端使用，不进前端 |
@@ -42,6 +45,13 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 
 > `VITE_` 开头的会在打包时写进前端（公开，没关系）；其余只在 serverless 运行时读取。
 
+### Kimi 识图说明
+
+- 手机上传的图片会先在浏览器缩放到最长边 1800px，并转成压缩 JPEG，减少等待和 Token 消耗。
+- 服务端只接收 JPEG/PNG/WebP Data URL，解码后上限约 2MB；丸丸不把图片写入数据库或 Storage。
+- Kimi 只返回规划所需的票务/酒店结构，姓名、手机号、证件号、订单号等字段会再次在服务端移除。
+- `MOONSHOT_API_KEY` 未配置或 Kimi 暂时失败时，前端自动回退到 Tesseract 本地 OCR + DeepSeek 结构化提取。
+
 ---
 
 ## 二、部署
@@ -51,7 +61,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 1. 把 `master` 推送到 `origin`。
 2. 在 Vercel 项目 `travel-companion` 中确认 Git Repository 指向 `guP0an/travel-companion`，Production Branch 为 `master`。
 3. Framework Preset 选择 Vite；Build Command 使用 `pnpm build`（或自动检测），Output Directory 为 `dist`。
-4. 在 Settings → Environment Variables 配齐 DeepSeek 和 Supabase 的 5 个必需变量；按需增加高德、和风天气及短信变量。覆盖 Production；需要预览环境时再同步到 Preview。
+4. 在 Settings → Environment Variables 配齐 DeepSeek 和 Supabase 的必需变量；需要直接识图时增加 Kimi 三项变量，按需增加高德、和风天气及短信变量。覆盖 Production；需要预览环境时再同步到 Preview。
 5. 触发 Production Deployment，记录最终 `https://*.vercel.app` 域名。
 
 本地 CLI 仅作为故障排查备用，不作为当前主流程。

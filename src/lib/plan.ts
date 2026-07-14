@@ -74,6 +74,11 @@ export async function extractBookings(text: string): Promise<Booking[]> {
   return (data.bookings || []) as Booking[]
 }
 
+export async function extractBookingsFromImage(image: string): Promise<Booking[]> {
+  const data = await aiRequest({ op: 'vision', image })
+  return (data.bookings || []) as Booking[]
+}
+
 // 用一句话让丸丸修改已有行程。
 export async function revisePlan(plan: Itinerary, instruction: string): Promise<Itinerary> {
   const data = await aiRequest({ op: 'revise', plan, instruction })

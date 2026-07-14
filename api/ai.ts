@@ -445,12 +445,13 @@ export function assertItinerary(value: any) {
 
 export function validateApiBody(body: any) {
   if (!body || typeof body !== 'object') throw new ApiError(400, 'invalid body')
-  if (!['plan', 'extract', 'revise'].includes(body.op)) throw new ApiError(400, 'unknown op')
+  if (!['plan', 'extract', 'vision', 'revise'].includes(body.op)) throw new ApiError(400, 'unknown op')
   if (body.op === 'plan') {
     if (!Number.isInteger(body.days) || body.days < 1 || body.days > 15) throw new ApiError(400, 'days must be 1-15')
     if (!isString(body.destination) || !body.destination.trim() || body.destination.length > 100) throw new ApiError(400, 'invalid destination')
   }
   if (body.op === 'extract' && (!isString(body.text) || !body.text.trim() || body.text.length > 20_000)) throw new ApiError(400, 'invalid OCR text')
+  if (body.op === 'vision') validateVisionDataUrl(body.image)
   if (body.op === 'revise' && (!isString(body.instruction) || !body.instruction.trim() || body.instruction.length > 2_000 || !body.plan)) throw new ApiError(400, 'invalid revision')
 }
 
@@ -501,16 +502,67 @@ export const EXTRACT_PROMPT = `你从用户上传截图 OCR 出来的文字里�
 严格输出 JSON：{"bookings":[{"type":"train|flight|hotel|other","title":"一句话标题","fields":{"中文键":"值"}}]}。
 fields 只放规划所需且确实读到的，键用中文，例如：出发、到达、日期、车次、航班、出发时间、到达时间、入住、离店、酒店、地址、房型、价格。不要输出姓名、手机号、证件号、订单号等个人信息；读不到就不要编、不要输出空字段。`
 
+const normalizeBookings = (value: any) => {
+  const bookings = Array.isArray(value?.bookings) ? value.bookings : []
+  return bookings.slice(0, 12).map((booking: any) => ({
+    type: ['train', 'flight', 'hotel', 'other'].includes(booking?.type) ? booking.type : 'other',
+    title: cleanAlertText(booking?.title, 120) || '识别到的预订',
+    fields: Object.fromEntries(
+      Object.entries(booking?.fields || {})
+        .filter(([key, fieldValue]) => !/姓名|手机号|证件|身份证|护照|订单|乘客|旅客|联系人/.test(key) && isString(fieldValue))
+        .slice(0, 30)
+        .map(([key, fieldValue]) => [cleanAlertText(key, 40), cleanAlertText(fieldValue, 300)]),
+    ),
+  }))
+}
+
+export function validateVisionDataUrl(value: unknown): string {
+  if (!isString(value)) throw new ApiError(400, 'invalid image')
+  const match = value.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/)
+  if (!match) throw new ApiError(400, 'invalid image format')
+  const estimatedBytes = Math.floor(match[2].length * 3 / 4)
+  if (estimatedBytes < 32 || estimatedBytes > 2_000_000) throw new ApiError(413, 'image too large')
+  return value
+}
+
+export async function extractBookingsFromImage(image: string, env: Env, fetcher: FetchLike = fetch) {
+  const key = env.MOONSHOT_API_KEY || env.KIMI_API_KEY
+  const base = (env.KIMI_BASE_URL || 'https://api.moonshot.cn/v1').replace(/\/$/, '')
+  const model = env.KIMI_VISION_MODEL || 'kimi-k2.6'
+  if (!key) throw new Error('MOONSHOT_API_KEY 未配置')
+  const response = await fetcher(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model,
+      thinking: { type: 'disabled' },
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: EXTRACT_PROMPT },
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: validateVisionDataUrl(image) } },
+            { type: 'text', text: '直接识别这张出行预订截图。只输出规定的 JSON，不要描述图片。' },
+          ],
+        },
+      ],
+    }),
+    signal: AbortSignal.timeout(45_000),
+  })
+  if (!response.ok) throw new Error(`Kimi Vision HTTP ${response.status}`)
+  const data = await response.json() as any
+  const content = data.choices?.[0]?.message?.content
+  if (!isString(content) || !content.trim()) throw new Error('Kimi Vision 返回空内容')
+  return normalizeBookings(JSON.parse(content))
+}
+
 export async function extractBookings(text: string, env: Env, fetcher: FetchLike = fetch) {
   const content = await chat(env, [
     { role: 'system', content: EXTRACT_PROMPT },
     { role: 'user', content: '截图 OCR 文字：「' + redactSensitiveText(text) + '」' },
   ], { temperature: 0.2, max_tokens: 2048 }, fetcher)
-  const bookings = JSON.parse(content).bookings || []
-  return bookings.map((booking: any) => ({
-    ...booking,
-    fields: Object.fromEntries(Object.entries(booking.fields || {}).filter(([key]) => !/姓名|手机号|证件|身份证|护照|订单/.test(key))),
-  }))
+  return normalizeBookings(JSON.parse(content))
 }
 
 export async function revise(body: any, env: Env, fetcher: FetchLike = fetch) {
@@ -558,7 +610,7 @@ export async function handleApiRequest(req: any, res: any, env: Env, fetcher: Fe
   let op = ''
   try {
     const contentLength = Number(req.headers?.['content-length'] || 0)
-    if (contentLength > 1_000_000) throw new ApiError(413, 'request too large')
+    if (contentLength > 3_000_000) throw new ApiError(413, 'request too large')
     const authHeader = req.headers?.authorization || req.headers?.Authorization
     const user = await verifyAccessToken(authHeader, env, fetcher)
     if (!allowAiRequest(user.id)) throw new ApiError(429, 'rate limit exceeded')
@@ -568,6 +620,7 @@ export async function handleApiRequest(req: any, res: any, env: Env, fetcher: Fe
     validateApiBody(body)
     if (op === 'plan') return res.end(JSON.stringify(await generate(body, env, fetcher)))
     if (op === 'extract') return res.end(JSON.stringify({ bookings: await extractBookings(body.text, env, fetcher) }))
+    if (op === 'vision') return res.end(JSON.stringify({ bookings: await extractBookingsFromImage(body.image, env, fetcher), provider: 'kimi-k2.6' }))
     return res.end(JSON.stringify(await revise(body, env, fetcher)))
   } catch (e) {
     const status = e instanceof ApiError ? e.status : 502
@@ -576,7 +629,7 @@ export async function handleApiRequest(req: any, res: any, env: Env, fetcher: Fe
       ? '请先登录后再让丸丸规划～'
       : status === 429
         ? '请求有点频繁，歇一会儿再找丸丸吧～'
-        : op === 'extract'
+        : op === 'extract' || op === 'vision'
           ? '这张图没读清，手动填一下也行～'
           : op === 'revise'
             ? '丸丸没改明白，换句话说说看～'
