@@ -79,10 +79,12 @@ test('access token is required and verified with Supabase', async () => {
 
 test('API body validation rejects oversized and invalid requests', () => {
   assert.throws(() => validateApiBody({ op: 'plan', destination: '京都', days: 0 }), ApiError)
+  assert.throws(() => validateApiBody({ op: 'plan', destination: '', days: 3 }), ApiError)
   assert.throws(() => validateApiBody({ op: 'extract', text: 'x'.repeat(20_001) }), ApiError)
   assert.throws(() => validateApiBody({ op: 'vision', image: 'https://example.com/ticket.png' }), ApiError)
   assert.throws(() => validateApiBody({ op: 'revise', plan: itinerary, instruction: '' }), ApiError)
   assert.doesNotThrow(() => validateApiBody({ op: 'plan', destination: '京都', days: 3 }))
+  assert.doesNotThrow(() => validateApiBody({ op: 'plan', destination: '', days: 3, ticketText: 'G304 香港西九龙到武汉' }))
 })
 
 test('Kimi vision request uses multimodal JSON mode and removes personal fields', async () => {

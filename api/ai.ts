@@ -448,7 +448,9 @@ export function validateApiBody(body: any) {
   if (!['plan', 'extract', 'vision', 'revise'].includes(body.op)) throw new ApiError(400, 'unknown op')
   if (body.op === 'plan') {
     if (!Number.isInteger(body.days) || body.days < 1 || body.days > 15) throw new ApiError(400, 'days must be 1-15')
-    if (!isString(body.destination) || !body.destination.trim() || body.destination.length > 100) throw new ApiError(400, 'invalid destination')
+    const destination = isString(body.destination) ? body.destination.trim() : ''
+    const ticketText = isString(body.ticketText) ? body.ticketText.trim() : ''
+    if ((!destination && !ticketText) || destination.length > 100 || ticketText.length > 20_000) throw new ApiError(400, 'invalid plan input')
   }
   if (body.op === 'extract' && (!isString(body.text) || !body.text.trim() || body.text.length > 20_000)) throw new ApiError(400, 'invalid OCR text')
   if (body.op === 'vision') validateVisionDataUrl(body.image)
