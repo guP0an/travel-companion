@@ -129,6 +129,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   margin: 0 auto;
   padding: 56px 0 72px;
 }
+.planner-workspace[hidden] { display: none; }
 .planner-sidebar {
   position: sticky;
   top: 110px;

@@ -112,7 +112,7 @@ export default function App() {
         </div>
       </header>
 
-      {view === 'saved' ? (
+      {view === 'saved' && (
         <main className="library-view">
           <SavedTrips
             trips={trips}
@@ -124,10 +124,11 @@ export default function App() {
             onBack={() => setView('plan')}
           />
         </main>
-      ) : view === 'ledger' ? (
+      )}
+      {view === 'ledger' && (
         <main className="library-view"><Ledger onBack={() => setView('plan')} /></main>
-      ) : (
-        <main className="planner-workspace">
+      )}
+        <main className="planner-workspace" hidden={view !== 'plan'}>
           <aside className="planner-sidebar" ref={plannerRef}>
             <div className="planner-intro">
               <div className="section-eyebrow">AI TRAVEL CONCIERGE</div>
@@ -237,7 +238,6 @@ export default function App() {
             )}
           </section>
         </main>
-      )}
 
       <footer className="app-footer">丸丸 · 你的旅行管家</footer>
     </div>
