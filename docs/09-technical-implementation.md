@@ -32,7 +32,7 @@
 | 样式 | 项目 CSS 变量与响应式布局 |
 | AI 服务端 | Vercel Function `api/ai.ts` |
 | 认证与数据库 | Supabase Auth + Postgres + RLS |
-| 图片存储 | Supabase Storage `checkin-photos` |
+| 图片存储 | Supabase Storage：公开打卡图 `checkin-photos`、私有账本凭证 `expense-receipts` |
 | 行程模型 | DeepSeek `deepseek-chat` |
 | 视觉模型 | Kimi `kimi-k2.6` |
 | 部署 | Vercel，GitHub `master` 自动部署 |
@@ -109,7 +109,7 @@ PlanForm
 ### 5.3 保存和读取
 
 - 行程：`itineraries.meta` + `itineraries.plan` JSONB。
-- 账本：`expenses`，可关联行程。
+- 账本：`expenses`，可关联行程；`receipt_paths` 保存私有凭证路径，读取时生成 1 小时签名链接。
 - 打卡：`checkins`，以用户和景点唯一。
 - 照片：上传到 `checkin-photos/<user-id>/...`。
 - 所有业务表启用 RLS，只允许当前用户访问自己的记录。
@@ -120,7 +120,7 @@ PlanForm
 |---|---|
 | `profiles` | 用户资料；偏好字段尚未扩展 |
 | `itineraries` | 收藏的完整行程 |
-| `expenses` | 消费账本 |
+| `expenses` | 消费账本与私有凭证路径 |
 | `checkins` | 景点评分、点评、打卡和照片 URL |
 
 RAG 第一版计划增加 `profiles.preferences`、`item_feedback` 和 `user_memories`，详见 [10-memory-and-rag.md](10-memory-and-rag.md)。
@@ -153,6 +153,7 @@ RAG 第一版计划增加 `profiles.preferences`、`item_feedback` 和 `user_mem
 - 数据库通过 RLS 做用户隔离。
 - 当前限流仅在单个 serverless 实例内，扩大内测前需要持久化限流。
 - 打卡照片当前使用公开 URL，扩大内测前需要复核隐私和访问策略。
+- 账本凭证使用私有桶和用户目录 RLS，删除消费时同步删除图片。
 
 ## 9. 测试与发布
 
@@ -176,6 +177,8 @@ pnpm build
 ## 10. 当前已知缺口
 
 - Kimi Key 已配置并重新部署，仍需登录后上传真实票务截图完成最终冒烟。
+- 账本私有凭证代码已完成；生产 Supabase 仍需运行 `supabase/expense-receipts.sql`。
+- 票据自动记账要求识别到价格；缺失时由用户补金额，10 分钟内同分类、金额和标题的自动记录会去重。
 - 高德和和风天气代码已接入，线上凭据尚未全部配置。
 - 手机认证等待短信企业资质、签名、模板和 Supabase Phone Provider。
 - 用户偏好尚未结构化沉淀并反哺生成。

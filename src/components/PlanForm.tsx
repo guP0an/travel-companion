@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Itinerary } from '../types/itinerary'
 import { generatePlan, revisePlan, extractBookings, extractBookingsFromImage, bookingCategory, parseBookingPrice, type PlanInput, type Booking } from '../lib/plan'
-import { addExpense } from '../lib/db'
+import { addExpense, expenseExists } from '../lib/db'
 import { MascotThinking } from './Mascot'
 
 const TYPE_LABEL: Record<string, string> = {
@@ -94,7 +94,8 @@ export default function PlanForm({
         const image = await compressForVision(f)
         const visualBookings = await extractBookingsFromImage(image)
         if (visualBookings.length > 0) {
-          await autoRecord(visualBookings)
+          visualBookings.forEach((booking) => { booking.receiptFile = f })
+          await autoRecord(visualBookings, f)
           setBookings((prev) => [...prev, ...visualBookings])
           return
         }
@@ -110,7 +111,8 @@ export default function PlanForm({
       }
       const bs = await extractBookings(text)
       if (bs.length) {
-        await autoRecord(bs) // 带价格的票直接记入账本
+        bs.forEach((booking) => { booking.receiptFile = f })
+        await autoRecord(bs, f) // 带价格的票直接记入账本，并保留票据截图
         setBookings((prev) => [...prev, ...bs]) // 累加，不覆盖之前传的
       } else setOcrText(text)
     } catch (e) {
@@ -121,25 +123,51 @@ export default function PlanForm({
   }
 
   // 识别到带价格的票/酒店，直接记入账本（交通/住宿）。未登录或账本未建表则提示。
-  const autoRecord = async (bs: Booking[]) => {
+  const autoRecord = async (bs: Booking[], receipt?: File) => {
     const done: string[] = []
     for (const b of bs) {
       const amt = parseBookingPrice(b.fields)
       if (!amt) continue
       const category = bookingCategory(b.type)
       try {
-        await addExpense({ category, amount: amt, note: b.title })
+        if (await expenseExists({ category, amount: amt, note: b.title })) {
+          b.recorded = { amount: amt, category }
+          done.push(`${category} ¥${amt}（已存在）`)
+          continue
+        }
+        await addExpense({ category, amount: amt, note: b.title }, receipt ? [receipt] : [])
         b.recorded = { amount: amt, category }
         done.push(`${category} ¥${amt}`)
       } catch (e) {
         const m = (e as Error).message || ''
         if (m.includes('未登录')) setLedgerMsg('登录后，票价会自动记入账本')
+        else if (m.includes('receipt_paths') || m.includes('expense-receipts') || m.toLowerCase().includes('bucket')) setLedgerMsg('票据已识别，凭证暂时无法保存')
         else if (m.includes('expenses') || m.includes('schema cache')) setLedgerMsg('账本还没启用：先在 Supabase 跑 expenses 建表 SQL')
         else setLedgerMsg('记账失败：' + m)
         return
       }
     }
     if (done.length) setLedgerMsg('已记入账本：' + done.join('、'))
+  }
+
+  const recordBooking = async (booking: Booking, index: number) => {
+    const amount = parseBookingPrice(booking.fields)
+    if (!amount) {
+      setLedgerMsg('先补一下票价，再记入账本')
+      return
+    }
+    const category = bookingCategory(booking.type)
+    try {
+      if (!(await expenseExists({ category, amount, note: booking.title }))) {
+        await addExpense({ category, amount, note: booking.title }, booking.receiptFile ? [booking.receiptFile] : [])
+      }
+      setBookings((items) => items.map((item, i) => i === index ? { ...item, recorded: { amount, category } } : item))
+      setLedgerMsg(`已记入账本：${category} ¥${amount}`)
+    } catch (e) {
+      const message = (e as Error).message || ''
+      if (message.includes('receipt_paths') || message.includes('expense-receipts') || message.toLowerCase().includes('bucket')) setLedgerMsg('票据已识别，凭证暂时无法保存')
+      else setLedgerMsg('记账失败：' + message)
+    }
   }
 
   const setField = (bi: number, k: string, v: string) =>
@@ -287,10 +315,24 @@ export default function PlanForm({
                   )}
                   {(() => {
                     const amt = parseBookingPrice(f)
-                    if (!amt) return null
+                    if (!amt) {
+                      return (
+                        <div className="booking-ledger-action">
+                          <input
+                            value={f['价格'] || ''}
+                            onChange={(event) => setField(bi, '价格', event.target.value.replace(/[^\d.]/g, ''))}
+                            inputMode="decimal"
+                            placeholder="补票价 ¥"
+                            aria-label={`${b.title}票价`}
+                          />
+                          <button onClick={() => recordBooking(b, bi)} disabled={!f['价格']}>记入账本</button>
+                        </div>
+                      )
+                    }
                     return (
-                      <div style={{ fontSize: '12px', marginTop: '4px', paddingLeft: '2px', color: b.recorded ? 'var(--color-qing)' : 'var(--color-ink-faint)' }}>
-                        💰 ¥{amt}{b.recorded ? ` · 已记入账本「${b.recorded.category}」` : '（登录后自动记账）'}
+                      <div className="booking-ledger-status" data-recorded={Boolean(b.recorded)}>
+                        <span>¥{amt}{b.recorded ? ` · 已记入账本「${b.recorded.category}」` : ''}</span>
+                        {!b.recorded && <button onClick={() => recordBooking(b, bi)}>记入账本</button>}
                       </div>
                     )
                   })()}
@@ -308,7 +350,7 @@ export default function PlanForm({
                 </div>
               )
             })}
-            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>丸丸会把这些票/酒店排进行程；带价格的已记入账本；读错了点「改」</div>
+            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>丸丸会把这些票/酒店排进行程；没读到价格可以补金额后记账；读错了点「改」</div>
             {ledgerMsg && <div style={{ fontSize: '11.5px', color: 'var(--color-qing)' }}>{ledgerMsg}</div>}
           </div>
         )}

@@ -21,6 +21,7 @@ export interface Booking {
   title: string
   fields: Record<string, string>
   recorded?: { amount: number; category: string } // 已记入账本（前端标记）
+  receiptFile?: File // 本次会话里的原始票据，用于自动记账时保存凭证
 }
 
 async function aiRequest(body: Record<string, unknown>) {

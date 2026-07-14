@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { listExpenses, addExpense, deleteExpense, type Expense } from '../lib/db'
 
 const CATS = ['餐饮', '交通', '门票', '住宿', '购物', '其他']
@@ -8,11 +8,13 @@ export default function Ledger({ onBack }: { onBack: () => void }) {
   const [cat, setCat] = useState('餐饮')
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
+  const [receipts, setReceipts] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
   const friendly = (e: unknown) => {
     const m = (e as Error).message || ''
+    if (m.includes('receipt_paths') || m.includes('expense-receipts') || m.toLowerCase().includes('bucket')) return '凭证保存暂不可用，请稍后再试'
     if (m.includes('expenses') || m.includes('schema cache')) return '账本还没启用：先去 Supabase 跑一下 expenses 建表 SQL'
     return m
   }
@@ -25,6 +27,15 @@ export default function Ledger({ onBack }: { onBack: () => void }) {
   useEffect(load, [])
 
   const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
+  const receiptPreviews = useMemo(() => receipts.map((file) => URL.createObjectURL(file)), [receipts])
+  useEffect(() => () => receiptPreviews.forEach(URL.revokeObjectURL), [receiptPreviews])
+
+  const chooseReceipts = (files: FileList | null) => {
+    if (!files) return
+    const images = Array.from(files).filter((file) => file.type.startsWith('image/'))
+    if (images.length !== files.length) setErr('凭证只能上传图片')
+    setReceipts((current) => [...current, ...images].slice(0, 3))
+  }
 
   const add = async () => {
     const amt = Number(amount)
@@ -35,9 +46,10 @@ export default function Ledger({ onBack }: { onBack: () => void }) {
     setBusy(true)
     setErr('')
     try {
-      await addExpense({ category: cat, amount: amt, note: note.trim() })
+      await addExpense({ category: cat, amount: amt, note: note.trim() }, receipts)
       setAmount('')
       setNote('')
+      setReceipts([])
       load()
     } catch (e) {
       setErr(friendly(e))
@@ -109,6 +121,23 @@ export default function Ledger({ onBack }: { onBack: () => void }) {
             记一笔
           </button>
         </div>
+        <div className="ledger-receipt-picker">
+          <label>
+            ＋ 添加凭证
+            <input type="file" accept="image/*" multiple onChange={(event) => { chooseReceipts(event.target.files); event.target.value = '' }} />
+          </label>
+          {receipts.length > 0 && <span>已选 {receipts.length} 张</span>}
+        </div>
+        {receiptPreviews.length > 0 && (
+          <div className="ledger-receipt-previews">
+            {receiptPreviews.map((url, index) => (
+              <button key={url} onClick={() => setReceipts((files) => files.filter((_, i) => i !== index))} title="移除这张凭证">
+                <img src={url} alt={`待上传凭证 ${index + 1}`} />
+                <span aria-hidden>×</span>
+              </button>
+            ))}
+          </div>
+        )}
         {err && <div className="mt-2" style={{ fontSize: '12px', color: 'var(--color-seal)' }}>{err}</div>}
       </div>
 
@@ -117,9 +146,20 @@ export default function Ledger({ onBack }: { onBack: () => void }) {
         <div style={{ fontSize: '13px', color: 'var(--color-ink-faint)', textAlign: 'center', padding: '1.5rem 0' }}>还没记账，上面记第一笔吧</div>
       )}
       {rows.map((r) => (
-        <div key={r.id} className="flex items-center gap-3 py-3" style={{ borderTop: '1px solid var(--color-line)' }}>
+        <div key={r.id} className="ledger-row">
           <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '999px', background: 'var(--color-qing-soft)', color: 'var(--color-qing)', flex: '0 0 auto' }}>{r.category}</span>
-          <span style={{ fontSize: '13px', color: 'var(--color-ink-soft)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.note || '—'}</span>
+          <div className="ledger-row-main">
+            <span>{r.note || '—'}</span>
+            {r.receipt_urls.length > 0 && (
+              <div className="ledger-receipt-images">
+                {r.receipt_urls.map((url, index) => (
+                  <a key={url} href={url} target="_blank" rel="noreferrer" title="查看凭证原图">
+                    <img src={url} alt={`消费凭证 ${index + 1}`} />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
           <span className="font-serif" style={{ fontSize: '15px', color: 'var(--color-ink)' }}>¥{Number(r.amount).toLocaleString()}</span>
           <button onClick={() => del(r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-faint)', fontSize: '11px' }}>删</button>
         </div>

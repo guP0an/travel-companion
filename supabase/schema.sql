@@ -38,6 +38,7 @@ create table if not exists public.expenses (
   category     text not null default '其他',
   amount       numeric not null default 0,
   note         text default '',
+  receipt_paths text[] not null default '{}', -- 私有 expense-receipts 桶内路径
   spent_at     date,
   created_at   timestamptz default now()
 );
@@ -46,6 +47,7 @@ drop policy if exists "own expenses" on public.expenses;
 create policy "own expenses" on public.expenses
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create index if not exists expenses_user_idx on public.expenses (user_id, created_at desc);
+alter table public.expenses add column if not exists receipt_paths text[] not null default '{}';
 
 -- 景点打卡：打卡/评分/评论/照片
 create table if not exists public.checkins (

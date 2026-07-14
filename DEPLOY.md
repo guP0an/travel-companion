@@ -11,6 +11,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 - 正式访问地址：`https://travel-companion-two-murex.vercel.app`，页面渲染冒烟检查已通过。
 - Vercel Production 已切换到 Supabase 项目 `travel-wanwan`；认证服务健康检查为 200，线上登录已从网络错误恢复为正常鉴权响应。
 - Supabase 四张业务表、RLS、照片桶、正式 Site URL 和密码重置回跳均已配置并验证。
+- 账本凭证需运行 `supabase/expense-receipts.sql`，增加 `receipt_paths` 并创建私有 `expense-receipts` 桶。
 - `/api/ai` 已强制登录并有基础限流；模型返回、天气事实和可选高德事实层均有自动化测试。
 - 手机验证码、手机密码和邮箱三种认证界面已完成；页面会读取 Supabase Auth Settings，Phone Provider 未启用时自动保持邮箱入口。
 - Supabase Send SMS Hook 与腾讯云 SMS 签名调用已完成；正式开放手机号入口仍需企业短信资质、签名和模板审核。

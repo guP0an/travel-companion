@@ -502,7 +502,7 @@ export async function generate(input: any, env: Env, fetcher: FetchLike = fetch)
 
 export const EXTRACT_PROMPT = `你从用户上传截图 OCR 出来的文字里，提取出行预订信息（火车/高铁票、机票、酒店预订等，可能不止一条）。
 严格输出 JSON：{"bookings":[{"type":"train|flight|hotel|other","title":"一句话标题","fields":{"中文键":"值"}}]}。
-fields 只放规划所需且确实读到的，键用中文，例如：出发、到达、日期、车次、航班、出发时间、到达时间、入住、离店、酒店、地址、房型、价格。不要输出姓名、手机号、证件号、订单号等个人信息；读不到就不要编、不要输出空字段。`
+fields 只放规划所需且确实读到的，键用中文，例如：出发、到达、日期、车次、航班、出发时间、到达时间、入住、离店、酒店、地址、房型、价格。价格/票价/实付金额是自动记账的关键字段，只要图片或文字中可见就必须提取并统一使用键“价格”。不要输出姓名、手机号、证件号、订单号等个人信息；读不到就不要编、不要输出空字段。`
 
 const normalizeBookings = (value: any) => {
   const bookings = Array.isArray(value?.bookings) ? value.bookings : []

@@ -41,31 +41,128 @@ export interface Expense {
   note: string
   spent_at: string | null
   created_at: string
+  receipt_paths: string[]
+  receipt_urls: string[]
 }
 
 export async function listExpenses(): Promise<Expense[]> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('expenses')
-    .select('id, category, amount, note, spent_at, created_at')
+    .select('id, category, amount, note, spent_at, created_at, receipt_paths')
     .order('created_at', { ascending: false })
+  if (error && (error.message.includes('receipt_paths') || error.message.includes('schema cache'))) {
+    const fallback = await supabase
+      .from('expenses')
+      .select('id, category, amount, note, spent_at, created_at')
+      .order('created_at', { ascending: false })
+    data = fallback.data as typeof data
+    error = fallback.error
+  }
   if (error) throw error
-  return (data ?? []) as Expense[]
+  const rows = (data ?? []) as Array<Omit<Expense, 'receipt_urls'> & { receipt_paths?: string[] }>
+  const paths = [...new Set(rows.flatMap((row) => row.receipt_paths || []))]
+  const signedByPath = new Map<string, string>()
+  if (paths.length > 0) {
+    const { data: signed } = await supabase.storage.from('expense-receipts').createSignedUrls(paths, 60 * 60)
+    signed?.forEach((item) => {
+      if (item.path && item.signedUrl) signedByPath.set(item.path, item.signedUrl)
+    })
+  }
+  return rows.map((row) => ({
+    ...row,
+    receipt_paths: row.receipt_paths || [],
+    receipt_urls: (row.receipt_paths || []).map((path) => signedByPath.get(path)).filter(Boolean) as string[],
+  }))
 }
 
-export async function addExpense(e: { category: string; amount: number; note: string; spent_at?: string }): Promise<void> {
+const prepareReceipt = async (file: File): Promise<File> => {
+  if (!file.type.startsWith('image/')) throw new Error('凭证只能上传图片')
+  if (file.size > 15 * 1024 * 1024) throw new Error('单张凭证请控制在 15MB 以内')
+  const url = URL.createObjectURL(file)
+  try {
+    const image = new Image()
+    image.src = url
+    await image.decode()
+    const maxSide = 1800
+    const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('浏览器无法处理这张凭证')
+    context.fillStyle = '#fff'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((value) => value ? resolve(value) : reject(new Error('凭证压缩失败')), 'image/jpeg', 0.84)
+    })
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'receipt'}.jpg`, { type: 'image/jpeg' })
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+async function uploadExpenseReceipts(files: File[], userId: string): Promise<string[]> {
+  const paths: string[] = []
+  for (const [index, source] of files.slice(0, 3).entries()) {
+    const file = await prepareReceipt(source)
+    const path = `${userId}/${Date.now()}-${index}-${crypto.randomUUID()}.jpg`
+    const { error } = await supabase.storage.from('expense-receipts').upload(path, file, { contentType: 'image/jpeg' })
+    if (error) {
+      if (paths.length) await supabase.storage.from('expense-receipts').remove(paths)
+      throw error
+    }
+    paths.push(path)
+  }
+  return paths
+}
+
+export async function addExpense(
+  e: { category: string; amount: number; note: string; spent_at?: string },
+  receiptFiles: File[] = [],
+): Promise<void> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) throw new Error('未登录')
+  const receiptPaths = receiptFiles.length ? await uploadExpenseReceipts(receiptFiles, user.id) : []
+  const row: Record<string, unknown> = {
+    user_id: user.id,
+    category: e.category,
+    amount: e.amount,
+    note: e.note,
+    spent_at: e.spent_at || null,
+  }
+  if (receiptPaths.length) row.receipt_paths = receiptPaths
   const { error } = await supabase
     .from('expenses')
-    .insert({ user_id: user.id, category: e.category, amount: e.amount, note: e.note, spent_at: e.spent_at || null })
+    .insert(row)
+  if (error) {
+    if (receiptPaths.length) await supabase.storage.from('expense-receipts').remove(receiptPaths)
+    throw error
+  }
+}
+
+export async function expenseExists(e: { category: string; amount: number; note: string }, withinMinutes = 10): Promise<boolean> {
+  const since = new Date(Date.now() - withinMinutes * 60_000).toISOString()
+  const { data, error } = await supabase
+    .from('expenses')
+    .select('id')
+    .eq('category', e.category)
+    .eq('amount', e.amount)
+    .eq('note', e.note)
+    .gte('created_at', since)
+    .limit(1)
   if (error) throw error
+  return Boolean(data?.length)
 }
 
 export async function deleteExpense(id: string): Promise<void> {
+  const { data } = await supabase.from('expenses').select('receipt_paths').eq('id', id).maybeSingle()
   const { error } = await supabase.from('expenses').delete().eq('id', id)
   if (error) throw error
+  const paths = Array.isArray(data?.receipt_paths) ? data.receipt_paths : []
+  if (paths.length) await supabase.storage.from('expense-receipts').remove(paths)
 }
 
 // ===== 景点打卡 =====
