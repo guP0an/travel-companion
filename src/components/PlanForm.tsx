@@ -320,7 +320,6 @@ export default function PlanForm({
             </button>
           </div>
         )}
-        <div className="vision-privacy">图片会发送至 Kimi 识别，丸丸不保存原图；失败时自动改用本地 OCR。</div>
       </div>
 
       {busy ? (
