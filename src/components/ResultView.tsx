@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Itinerary, Item, Period, PrepNote, Highlight } from '../types/itinerary'
+import type { Itinerary, Item, Period, PrepNote, Highlight, WeatherAlertNotice } from '../types/itinerary'
 import SpotDetail from './SpotDetail'
 import { fetchWeather, type DayWeather } from '../lib/weather'
 import { phenomena, type Phenomenon } from '../lib/phenomena'
@@ -7,6 +7,30 @@ import { phenomena, type Phenomenon } from '../lib/phenomena'
 const PERIOD: Record<Period, string> = { morning: '上午', afternoon: '下午', evening: '晚上' }
 const PREP_ICON: Record<PrepNote['category'], string> = {
   货币: '💱', 插头电压: '🔌', 网络流量: '📶', 证件签注: '🪪', 支付: '💳', 语言: '🗣️', 天气穿衣: '🌤️', 交通: '🚇', 健康安全: '🩹', 风俗: '🎎', 其他: '📌',
+}
+
+function WeatherAlertBand({ alerts }: { alerts: WeatherAlertNotice[] }) {
+  const urgent = alerts.some((alert) => ['red', 'orange'].includes(alert.color.toLowerCase()) || ['severe', 'extreme'].includes(alert.severity.toLowerCase()))
+  return (
+    <section className={`weather-alert-band${urgent ? ' urgent' : ''}`} aria-label="当前天气预警">
+      <div className="weather-alert-heading">
+        <span aria-hidden>!</span>
+        当前生效天气预警
+      </div>
+      <div className="weather-alert-list">
+        {alerts.map((alert, index) => (
+          <div key={alert.id || index}>
+            <div className="weather-alert-title">{[alert.color, alert.event].filter(Boolean).join(' ')}预警 · {alert.headline}</div>
+            {alert.instruction && <div className="weather-alert-detail">{alert.instruction}</div>}
+            <div className="weather-alert-source">
+              {alert.sender || '官方气象机构'}{alert.expiresAt ? ` · 有效至 ${alert.expiresAt}` : ''} ·{' '}
+              <a href="https://developer.qweather.com/attribution.html" target="_blank" rel="noreferrer">和风天气</a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 function PrepCard({ notes }: { notes: PrepNote[] }) {
@@ -238,6 +262,7 @@ export default function ResultView({
         {data.greeting}
       </blockquote>
 
+      {data.weatherAlerts && data.weatherAlerts.length > 0 && <WeatherAlertBand alerts={data.weatherAlerts} />}
       {data.prep && data.prep.length > 0 && <PrepCard notes={data.prep} />}
       {data.highlights && data.highlights.length > 0 && <HighlightCard list={data.highlights} />}
 

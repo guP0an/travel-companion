@@ -56,6 +56,23 @@ export interface WeatherFact {
   precipitationProbability: number
 }
 
+export interface WeatherAlertFact {
+  id: string
+  event: string
+  severity: string
+  color: string
+  headline: string
+  instruction: string
+  sender: string
+  issuedAt: string
+  expiresAt: string
+}
+
+interface GeoFact {
+  latitude: number
+  longitude: number
+}
+
 export interface PoiFact {
   query: string
   name: string
@@ -76,11 +93,12 @@ export interface RouteFact {
 
 export interface TravelFacts {
   weather: WeatherFact[]
+  alerts: WeatherAlertFact[]
   pois: PoiFact[]
   routes: RouteFact[]
 }
 
-const emptyFacts = (): TravelFacts => ({ weather: [], pois: [], routes: [] })
+const emptyFacts = (): TravelFacts => ({ weather: [], alerts: [], pois: [], routes: [] })
 
 export function redactSensitiveText(text: string): string {
   return text
@@ -96,6 +114,9 @@ export function buildUser(input: any, facts: TravelFacts = emptyFacts()): string
   const must = Array.isArray(input.mustVisit) ? input.mustVisit.join('、') : (input.mustVisit || '')
   const weather = facts.weather.length
     ? `已查询到的天气事实（只按这些数据写天气，不要自行补充）：${facts.weather.map((w) => `${w.date} ${w.text} ${w.tMin}~${w.tMax}℃，降水概率${w.precipitationProbability}%`).join('；')}。`
+    : ''
+  const alerts = facts.alerts.length
+    ? `当前生效的官方天气预警（最高优先级）：${facts.alerts.map((alert) => `${alert.color || alert.severity}${alert.event}预警：${alert.headline}${alert.instruction ? `；防御建议：${alert.instruction}` : ''}`).join('；')}。红色/橙色或 severe/extreme 预警下不得安排高风险户外活动，必须在 prep 首项醒目提醒并改成安全的室内替代；黄色或 moderate 预警需增加交通缓冲和装备提醒。不要弱化或改写成普通天气。`
     : ''
   const pois = facts.pois.length
     ? `已核验的地点事实：${facts.pois.map((p) => `${p.name}（${p.address || p.city || '地址未返回'}${p.openingHours ? `，营业时间${p.openingHours}` : ''}）`).join('；')}。未出现在此列表的地点仍需保守表述，不要编精确地址和营业时间。`
@@ -116,6 +137,7 @@ export function buildUser(input: any, facts: TravelFacts = emptyFacts()): string
   - 行程天数与起止日期以这些票为准；如果我没单独说目的地，就以票里的到达城市为目的地。`
       : '',
     weather,
+    alerts,
     pois,
     '请按你管家的风格给我排一版，并严格按规定的 JSON 结构输出。',
   ].filter(Boolean).join('')
@@ -194,17 +216,27 @@ export function dateRange(start: string, days: number): string[] {
   })
 }
 
-export async function collectWeatherFacts(input: any, fetcher: FetchLike = fetch): Promise<WeatherFact[]> {
-  const dates = dateRange(input.departureDate || '', input.days)
-  if (!input.destination || dates.length === 0) return []
+export async function geocodeDestination(destination: string, fetcher: FetchLike = fetch): Promise<GeoFact | null> {
+  if (!destination.trim()) return null
   try {
-    const geoResponse = await fetcher(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(input.destination)}&count=1&language=zh&format=json`, factRequestInit())
-    if (!geoResponse.ok) return []
-    const geo = await geoResponse.json() as any
+    const response = await fetcher(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destination)}&count=1&language=zh&format=json`, factRequestInit())
+    if (!response.ok) return null
+    const geo = await response.json() as any
     const hit = geo.results?.[0]
-    if (!hit) return []
+    const latitude = Number(hit?.latitude)
+    const longitude = Number(hit?.longitude)
+    return Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : null
+  } catch {
+    return null
+  }
+}
+
+async function collectForecast(input: any, geo: GeoFact | null, fetcher: FetchLike): Promise<WeatherFact[]> {
+  const dates = dateRange(input.departureDate || '', input.days)
+  if (!geo || dates.length === 0) return []
+  try {
     const forecastUrl =
-      `https://api.open-meteo.com/v1/forecast?latitude=${hit.latitude}&longitude=${hit.longitude}` +
+      `https://api.open-meteo.com/v1/forecast?latitude=${geo.latitude}&longitude=${geo.longitude}` +
       '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
       `&timezone=auto&start_date=${dates[0]}&end_date=${dates[dates.length - 1]}`
     const forecastResponse = await fetcher(forecastUrl, factRequestInit())
@@ -226,6 +258,69 @@ export async function collectWeatherFacts(input: any, fetcher: FetchLike = fetch
   } catch {
     return []
   }
+}
+
+export async function collectWeatherFacts(input: any, fetcher: FetchLike = fetch): Promise<WeatherFact[]> {
+  const geo = input.destination ? await geocodeDestination(input.destination, fetcher) : null
+  return collectForecast(input, geo, fetcher)
+}
+
+const alertWindowIsRelevant = (departureDate: string, now: Date) => {
+  if (!departureDate) return true
+  const start = new Date(`${departureDate}T00:00:00Z`)
+  if (Number.isNaN(start.getTime())) return false
+  const daysAway = (start.getTime() - Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) / 86_400_000
+  return daysAway >= -1 && daysAway <= 7
+}
+
+const cleanAlertText = (value: unknown, maxLength = 500) =>
+  isString(value) ? value.replace(/\s+/g, ' ').trim().slice(0, maxLength) : ''
+
+export async function collectWeatherAlerts(
+  input: any,
+  env: Env,
+  fetcher: FetchLike = fetch,
+  geo?: GeoFact | null,
+  now = new Date(),
+): Promise<WeatherAlertFact[]> {
+  const key = env.QWEATHER_API_KEY
+  const host = (env.QWEATHER_API_HOST || '').trim().toLowerCase()
+  if (!key || !/^[a-z0-9.-]+\.qweatherapi\.com$/.test(host) || !alertWindowIsRelevant(input.departureDate || '', now)) return []
+  const location = geo === undefined ? await geocodeDestination(input.destination || '', fetcher) : geo
+  if (!location) return []
+  try {
+    const latitude = location.latitude.toFixed(2)
+    const longitude = location.longitude.toFixed(2)
+    const response = await fetcher(`https://${host}/weatheralert/v1/current/${latitude}/${longitude}?lang=zh&localTime=true`, {
+      ...factRequestInit(),
+      headers: { 'X-QW-Api-Key': key },
+    })
+    if (!response.ok) return []
+    const data = await response.json() as any
+    return (Array.isArray(data.alerts) ? data.alerts : [])
+      .filter((alert: any) => alert?.messageType?.code !== 'cancel')
+      .filter((alert: any) => !alert.expireTime || Number.isNaN(Date.parse(alert.expireTime)) || Date.parse(alert.expireTime) > now.getTime())
+      .slice(0, 5)
+      .map((alert: any) => ({
+        id: cleanAlertText(alert.id, 120),
+        event: cleanAlertText(alert.eventType?.name, 60) || '天气灾害',
+        severity: cleanAlertText(alert.severity, 30),
+        color: cleanAlertText(alert.color?.code, 20),
+        headline: cleanAlertText(alert.headline, 300) || cleanAlertText(alert.description, 300),
+        instruction: cleanAlertText(alert.instruction, 600),
+        sender: cleanAlertText(alert.senderName, 100),
+        issuedAt: cleanAlertText(alert.issuedTime, 60),
+        expiresAt: cleanAlertText(alert.expireTime, 60),
+      }))
+  } catch {
+    return []
+  }
+}
+
+export function attachWeatherAlerts(plan: any, alerts: WeatherAlertFact[]) {
+  if (alerts.length === 0) return plan
+  const existing = Array.isArray(plan.weatherAlerts) ? plan.weatherAlerts : []
+  return { ...plan, weatherAlerts: [...alerts, ...existing.filter((item: any) => !alerts.some((alert) => alert.id && alert.id === item?.id))].slice(0, 5) }
 }
 
 export async function searchAmapPoi(query: string, region: string, key: string, fetcher: FetchLike = fetch): Promise<PoiFact | null> {
@@ -377,25 +472,29 @@ async function chat(env: Env, messages: any[], opts: { temperature: number; max_
 }
 
 export async function generate(input: any, env: Env, fetcher: FetchLike = fetch) {
-  const weather = await collectWeatherFacts(input, fetcher)
+  const geo = input.destination ? await geocodeDestination(input.destination, fetcher) : null
+  const [weather, alerts] = await Promise.all([
+    collectForecast(input, geo, fetcher),
+    collectWeatherAlerts(input, env, fetcher, geo),
+  ])
   const content = await chat(env, [
     { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: buildUser(input, { weather, pois: [], routes: [] }) },
+    { role: 'user', content: buildUser(input, { weather, alerts, pois: [], routes: [] }) },
   ], { temperature: 1, max_tokens: 8192 }, fetcher)
   const draft = assertItinerary(JSON.parse(content))
-  if (!env.AMAP_WEB_SERVICE_KEY) return draft
+  if (!env.AMAP_WEB_SERVICE_KEY) return attachWeatherAlerts(draft, alerts)
   const amap = await collectAmapFacts(draft, input, env, fetcher)
-  if (amap.pois.length === 0) return draft
-  const facts = { weather, ...amap }
+  if (amap.pois.length === 0) return attachWeatherAlerts(draft, alerts)
+  const facts = { weather, alerts, ...amap }
   const issues = groundingIssues(draft, facts)
-  if (issues.length === 0) return draft
+  if (issues.length === 0) return attachWeatherAlerts(draft, alerts)
 
   const repairPrompt = `这是当前行程 JSON：\n${JSON.stringify(draft)}\n\n这是工具核验结果：\n${issues.join('\n')}\n\n请只修复上述问题，保留其余内容，输出完整同结构 JSON。不得新增工具未证实的精确地址、营业时间或票价。`
   const repaired = await chat(env, [
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: repairPrompt },
   ], { temperature: 0.3, max_tokens: 8192 }, fetcher)
-  return assertItinerary(JSON.parse(repaired))
+  return attachWeatherAlerts(assertItinerary(JSON.parse(repaired)), alerts)
 }
 
 export const EXTRACT_PROMPT = `你从用户上传截图 OCR 出来的文字里，提取出行预订信息（火车/高铁票、机票、酒店预订等，可能不止一条）。

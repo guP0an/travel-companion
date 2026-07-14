@@ -6,9 +6,22 @@ export interface Itinerary {
   greeting: string // 管家开场白（带性格）
   prep?: PrepNote[] // 行前准备 / 注意事项（货币/插头/流量/证件…），境外尤重
   highlights?: Highlight[] // 当季限定：本地当季著名景观/时令（枫叶/樱花/花期/限定活动），模型按目的地+月份给
+  weatherAlerts?: WeatherAlertNotice[] // 服务端查询到的当前官方灾害预警，不由模型编写
   days: DayPlan[] // 长度 = meta.days
   closing: string // 结语
   disclaimer: string // 真实性免责提示
+}
+
+export interface WeatherAlertNotice {
+  id: string
+  event: string
+  severity: string
+  color: string
+  headline: string
+  instruction: string
+  sender: string
+  issuedAt: string
+  expiresAt: string
 }
 
 // 当季限定景观/时令的一条

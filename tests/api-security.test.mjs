@@ -3,7 +3,10 @@ import test from 'node:test'
 
 import {
   ApiError,
+  attachWeatherAlerts,
   assertItinerary,
+  buildUser,
+  collectWeatherAlerts,
   collectWeatherFacts,
   createRateLimiter,
   dateRange,
@@ -18,6 +21,12 @@ import {
   maskAccount,
   normalizeMainlandPhone,
 } from '../node_modules/.tmp-tsnode/shared/auth.js'
+import {
+  createTencentSmsRequest,
+  handleSmsHook,
+  verifyStandardWebhook,
+} from '../node_modules/.tmp-tsnode/api/send-sms.js'
+import { createHmac } from 'node:crypto'
 
 const itinerary = {
   meta: { destination: '京都', days: 1 },
@@ -143,4 +152,132 @@ test('mainland phone auth values are normalized and masked safely', () => {
   assert.equal(maskAccount('+8613800138000', null), '+86 138****8000')
   assert.equal(friendlyAuthError('Invalid login credentials'), '账号或密码不正确')
   assert.equal(friendlyAuthError('Unsupported phone provider'), '手机短信服务尚未开通，请暂时使用邮箱登录')
+})
+
+test('Supabase SMS hook signature is verified with replay protection', () => {
+  const body = JSON.stringify({ user: { phone: '+8613800138000' }, sms: { otp: '123456' } })
+  const secretBytes = Buffer.from('a sufficiently long webhook secret')
+  const secret = `v1,whsec_${secretBytes.toString('base64')}`
+  const timestamp = 1_720_000_000
+  const id = 'msg_test'
+  const signature = createHmac('sha256', secretBytes).update(`${id}.${timestamp}.${body}`).digest('base64')
+  const headers = {
+    'webhook-id': id,
+    'webhook-timestamp': String(timestamp),
+    'webhook-signature': `v1,${signature}`,
+  }
+  assert.doesNotThrow(() => verifyStandardWebhook(body, headers, secret, timestamp))
+  assert.throws(() => verifyStandardWebhook(body, headers, secret, timestamp + 301), /stale webhook/)
+  assert.throws(() => verifyStandardWebhook(`${body}x`, headers, secret, timestamp), /invalid webhook signature/)
+})
+
+test('Tencent SMS request contains a deterministic TC3 signature and no plaintext secret', () => {
+  const request = createTencentSmsRequest('+8613800138000', '123456', {
+    TENCENTCLOUD_SECRET_ID: 'id-test',
+    TENCENTCLOUD_SECRET_KEY: 'secret-test',
+    TENCENT_SMS_SDK_APP_ID: '1400000000',
+    TENCENT_SMS_SIGN_NAME: '丸丸旅行',
+    TENCENT_SMS_TEMPLATE_ID: '1000000',
+  }, new Date('2026-07-14T00:00:00Z'))
+  assert.equal(request.url, 'https://sms.tencentcloudapi.com')
+  assert.match(request.init.headers.authorization, /^TC3-HMAC-SHA256 Credential=id-test\/2026-07-14\/sms\/tc3_request/)
+  assert.doesNotMatch(request.init.headers.authorization, /secret-test/)
+  assert.deepEqual(JSON.parse(request.init.body), {
+    PhoneNumberSet: ['+8613800138000'],
+    SmsSdkAppId: '1400000000',
+    SignName: '丸丸旅行',
+    TemplateId: '1000000',
+    TemplateParamSet: ['123456'],
+  })
+})
+
+test('SMS hook reads the raw body, verifies it and calls the provider once', async () => {
+  const body = JSON.stringify({ user: { phone: '+8613800138000' }, sms: { otp: '123456' } })
+  const secretBytes = Buffer.from('another sufficiently long secret')
+  const secret = `v1,whsec_${secretBytes.toString('base64')}`
+  const timestamp = Math.floor(Date.now() / 1000)
+  const id = 'msg_handler_test'
+  const signature = createHmac('sha256', secretBytes).update(`${id}.${timestamp}.${body}`).digest('base64')
+  let calls = 0
+  const response = await handleSmsHook(new Request('https://example.com/api/send-sms', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'webhook-id': id,
+      'webhook-timestamp': String(timestamp),
+      'webhook-signature': `v1,${signature}`,
+    },
+    body,
+  }), {
+    SUPABASE_SMS_HOOK_SECRET: secret,
+    TENCENTCLOUD_SECRET_ID: 'id-test',
+    TENCENTCLOUD_SECRET_KEY: 'secret-test',
+    TENCENT_SMS_SDK_APP_ID: '1400000000',
+    TENCENT_SMS_SIGN_NAME: '丸丸旅行',
+    TENCENT_SMS_TEMPLATE_ID: '1000000',
+  }, async () => {
+    calls += 1
+    return new Response(JSON.stringify({ Response: { RequestId: 'request-1', SendStatusSet: [{ Code: 'Ok' }] } }), { status: 200 })
+  })
+  assert.equal(response.status, 200)
+  assert.equal(await response.text(), '{}')
+  assert.equal(calls, 1)
+})
+
+test('current official weather alerts are fetched, filtered and grounded', async () => {
+  let request
+  const input = { destination: '杭州', departureDate: '2026-07-14', days: 2 }
+  const alerts = await collectWeatherAlerts(input, {
+    QWEATHER_API_HOST: 'abc.qweatherapi.com',
+    QWEATHER_API_KEY: 'qweather-test-key',
+  }, async (url, init) => {
+    request = { url, init }
+    return new Response(JSON.stringify({
+      alerts: [
+        {
+          id: 'active-1',
+          messageType: { code: 'alert' },
+          eventType: { name: '台风' },
+          severity: 'severe',
+          color: { code: 'red' },
+          headline: '台风红色预警',
+          instruction: '停止高风险户外活动。',
+          senderName: '杭州市气象台',
+          issuedTime: '2026-07-14T08:00+08:00',
+          expireTime: '2026-07-15T08:00+08:00',
+        },
+        {
+          id: 'cancelled-1',
+          messageType: { code: 'cancel' },
+          eventType: { name: '暴雨' },
+          headline: '已解除',
+        },
+      ],
+    }), { status: 200 })
+  }, { latitude: 30.27, longitude: 120.15 }, new Date('2026-07-14T00:00:00Z'))
+
+  assert.equal(request.url, 'https://abc.qweatherapi.com/weatheralert/v1/current/30.27/120.15?lang=zh&localTime=true')
+  assert.equal(request.init.headers['X-QW-Api-Key'], 'qweather-test-key')
+  assert.equal(alerts.length, 1)
+  assert.equal(alerts[0].event, '台风')
+
+  const plan = attachWeatherAlerts(itinerary, alerts)
+  assert.equal(plan.weatherAlerts[0].id, 'active-1')
+  const prompt = buildUser(input, { weather: [], alerts, pois: [], routes: [] })
+  assert.match(prompt, /最高优先级/)
+  assert.match(prompt, /不得安排高风险户外活动/)
+})
+
+test('current alerts are skipped for a trip more than seven days away', async () => {
+  let calls = 0
+  const alerts = await collectWeatherAlerts({ destination: '杭州', departureDate: '2026-08-01' }, {
+    QWEATHER_API_HOST: 'abc.qweatherapi.com',
+    QWEATHER_API_KEY: 'qweather-test-key',
+  }, async () => {
+    calls += 1
+    return new Response('{}')
+  }, { latitude: 30.27, longitude: 120.15 }, new Date('2026-07-14T00:00:00Z'))
+
+  assert.deepEqual(alerts, [])
+  assert.equal(calls, 0)
 })
