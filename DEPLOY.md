@@ -3,15 +3,15 @@
 丸丸前端是纯静态（Vite 打包到 `dist`），DeepSeek 代理是 `api/` 下的 serverless 函数（key 只在服务端）。
 Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 
-## 当前部署状态（2026-07-14）
+## 当前部署状态（2026-07-15）
 
 - GitHub 仓库已存在：`guP0an/travel-companion`，发布分支为 `master`。
 - 本地已关联 Vercel 项目 `travel-companion`（项目 ID 已保存在未提交的 `.vercel/project.json`）。
 - Vercel 已连接 GitHub，`master` 推送会自动部署；最新生产部署已验证为 Ready。
 - 正式访问地址：`https://travel-companion-two-murex.vercel.app`，页面渲染冒烟检查已通过。
 - Vercel Production 已切换到 Supabase 项目 `travel-wanwan`；认证服务健康检查为 200，线上登录已从网络错误恢复为正常鉴权响应。
-- Supabase 四张业务表、RLS、照片桶、正式 Site URL 和密码重置回跳均已配置并验证。
-- 账本凭证需运行 `supabase/expense-receipts.sql`，增加 `receipt_paths` 并创建私有 `expense-receipts` 桶。
+- Supabase 四张业务表、RLS、`checkin-photos` 与 `expense-receipts` 存储桶、正式 Site URL 和密码重置回跳均已配置并验证。
+- 新 Supabase 项目 ref 为 `eqfmzfomeuwwdgwfhoha`，旧项目数据已按迁移决策放弃；线上从新库重新开始。
 - `/api/ai` 已强制登录并有基础限流；模型返回、天气事实和可选高德事实层均有自动化测试。
 - 手机验证码、手机密码和邮箱三种认证界面已完成；页面会读取 Supabase Auth Settings，Phone Provider 未启用时自动保持邮箱入口。
 - Supabase Send SMS Hook 与腾讯云 SMS 签名调用已完成；正式开放手机号入口仍需企业短信资质、签名和模板审核。
@@ -41,7 +41,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 | `TENCENT_SMS_SDK_APP_ID` | （短信开通时填写） | 腾讯云短信应用 ID |
 | `TENCENT_SMS_SIGN_NAME` | （审核通过的签名） | 验证码短信签名 |
 | `TENCENT_SMS_TEMPLATE_ID` | （审核通过的模板 ID） | 验证码模板，首个参数必须是验证码 |
-| `VITE_SUPABASE_URL` | `https://pdlpiugjluwztvbpaukf.supabase.co` | 前端连 Supabase（publishable key 受 RLS 保护，可公开） |
+| `VITE_SUPABASE_URL` | `https://eqfmzfomeuwwdgwfhoha.supabase.co` | 前端连 Supabase（publishable key 受 RLS 保护，可公开） |
 | `VITE_SUPABASE_ANON_KEY` | （Supabase 项目的 anon key） | |
 
 > `VITE_` 开头的会在打包时写进前端（公开，没关系）；其余只在 serverless 运行时读取。

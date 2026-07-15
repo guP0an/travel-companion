@@ -177,7 +177,7 @@ pnpm build
 ## 10. 当前已知缺口
 
 - Kimi Key 已配置并重新部署，仍需登录后上传真实票务截图完成最终冒烟。
-- 账本私有凭证代码已完成；生产 Supabase 仍需运行 `supabase/expense-receipts.sql`。
+- 账本私有凭证已部署到生产 Supabase：`expenses.receipt_paths` 与私有 `expense-receipts` 桶均已启用。
 - 票据自动记账要求识别到价格；缺失时由用户补金额，10 分钟内同分类、金额和标题的自动记录会去重。
 - 高德和和风天气代码已接入，线上凭据尚未全部配置。
 - 手机认证等待短信企业资质、签名、模板和 Supabase Phone Provider。

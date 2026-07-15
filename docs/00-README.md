@@ -85,7 +85,7 @@
 - 有出发日期时，服务端会在生成前查询天气并作为事实交给 DeepSeek；配置 `AMAP_WEB_SERVICE_KEY` 后会核验 POI 和相邻路线，发现未核验地点或超长步行时触发局部修复。
 - 配置和风天气后，系统只在临近出发时查询当前生效官方预警；严重预警会持久化到行程、在页面顶部展示，并要求 DeepSeek 改为安全安排。
 - 票据 OCR 文本在发送模型前会隐藏姓名、手机号、邮箱和证件号，结构化结果不再保留订单号等无关个人信息。
-- 云端实测：`profiles`、`itineraries`、`expenses`、`checkins` 四张表与 `checkin-photos` 存储桶均返回 200；建表、触发器和 RLS 已部署。
+- 云端实测：`profiles`、`itineraries`、`expenses`、`checkins` 四张表与 `checkin-photos`、`expense-receipts` 存储桶已部署；建表、触发器和 RLS 已同步到新生产项目。
 - Supabase Site URL 已指向正式站点，密码重置 `/?reset=1` 回跳已加入允许列表。
 
 **当前缺口**：
