@@ -1,0 +1,23 @@
+<view class="page-shell">
+  <view class="brand-row">
+    <view class="brand-mark">丸</view>
+    <view>
+      <view class="brand-name">丸丸</view>
+      <view class="brand-subtitle">你的旅行管家</view>
+    </view>
+  </view>
+
+  <view class="login-main">
+    <view class="eyebrow">WANWAN ACCOUNT</view>
+    <view class="title">把旅途，存在丸丸这里</view>
+    <view class="summary">登录后同步行程、票据、账本和打卡。</view>
+
+    <button wx:if="{{!loggedIn}}" class="login-button" loading="{{busy}}" disabled="{{busy}}" bindtap="handleLogin">
+      微信登录
+    </button>
+    <view wx:else class="success-line">已登录，可以开始规划了</view>
+    <view wx:if="{{message}}" class="message">{{message}}</view>
+  </view>
+
+  <view class="privacy-note">登录即代表你同意丸丸保存必要的账号标识；不会读取微信聊天内容。</view>
+</view>

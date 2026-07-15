@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/login/login"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#f7f3e9",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "丸丸",
+    "backgroundColor": "#f7f3e9"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

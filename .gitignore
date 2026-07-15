@@ -21,3 +21,4 @@ vite.config.d.ts
 .idea/
 .vscode/
 .vercel
+project.private.config.json

@@ -5,13 +5,14 @@ import test from 'node:test'
 const schema = readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8')
 const storage = readFileSync(new URL('../supabase/storage.sql', import.meta.url), 'utf8')
 
-const tables = ['profiles', 'itineraries', 'expenses', 'checkins']
+const tables = ['profiles', 'wechat_identities', 'itineraries', 'expenses', 'checkins']
 
 test('Supabase migration creates every business table with RLS enabled', () => {
   for (const table of tables) {
     assert.match(schema, new RegExp(`create table if not exists public\\.${table} \\(`))
     assert.match(schema, new RegExp(`alter table public\\.${table} enable row level security;`))
   }
+  assert.match(schema, /revoke all on table public\.wechat_identities from anon, authenticated;/)
 })
 
 test('Supabase migration keeps user-owned row policies for every business table', () => {

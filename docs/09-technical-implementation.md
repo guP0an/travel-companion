@@ -1,7 +1,7 @@
 # 09 · 当前技术实现说明
 
 > 状态：当前有效  
-> 最近更新：2026-07-14  
+> 最近更新：2026-07-15
 > 用途：描述线上代码实际如何工作。`04-architecture-and-data-model.md` 保留早期架构决策与行程模型，本文件是当前工程真源。
 
 ## 1. 系统结构
@@ -20,6 +20,12 @@
                     ├─ Open-Meteo：天气预报
                     ├─ 和风天气：当前官方灾害预警（配置后）
                     └─ 高德 Web 服务：POI/路线核验（配置后）
+
+微信小程序
+  └─ wx.login → POST /api/wechat-auth
+                    ├─ 微信 code2Session：openid / unionid
+                    ├─ wechat_identities：哈希身份映射
+                    └─ ES256 短时 JWT：复用 Supabase RLS
 
 部署：GitHub master → Vercel Production
 ```
@@ -51,8 +57,11 @@
 | `src/types/itinerary.ts` | 前端、模型输出和云端存储共用的行程契约 |
 | `api/ai.ts` | AI 鉴权、限流、请求校验、事实查询、模型调用和降级 |
 | `api/send-sms.ts` | Supabase Send SMS Hook 与腾讯云短信调用 |
-| `supabase/schema.sql` | 当前四张业务表、触发器和 RLS |
+| `api/wechat-auth.ts` | 微信 code2Session、用户映射、ES256 JWT 和基础限流 |
+| `miniprogram/` | 原生微信小程序工程、登录页和会话客户端 |
+| `supabase/schema.sql` | 当前业务表、微信身份映射、触发器和 RLS |
 | `tests/api-security.test.mjs` | 服务端安全、模型边界和事实工具测试 |
+| `tests/wechat-auth.test.mjs` | 微信身份交换、哈希、账号复用和 JWT 测试 |
 
 ## 4. `/api/ai` 接口
 
@@ -74,6 +83,17 @@ Content-Type: application/json
 | `extract` | OCR text | 文本脱敏后由 DeepSeek 结构化 booking |
 
 模型输出在服务端执行运行时校验，不符合 `Itinerary` 基本结构时不会直接进入前端。
+
+### 4.1 `/api/wechat-auth` 接口
+
+```http
+POST /api/wechat-auth
+Content-Type: application/json
+
+{ "code": "<wx.login 临时 code>" }
+```
+
+服务端向微信 `jscode2session` 换取身份，只保存带 pepper 的 `openid/unionid` 哈希；随后创建或复用 Supabase 用户，并签发默认一小时的 ES256 JWT。小程序不接触微信 AppSecret、Supabase 管理密钥或 JWT 私钥。
 
 ## 5. 关键数据流
 
@@ -119,6 +139,7 @@ PlanForm
 | 表 | 当前用途 |
 |---|---|
 | `profiles` | 用户资料；偏好字段尚未扩展 |
+| `wechat_identities` | 微信 openid/unionid 哈希到 Supabase 用户的服务端映射 |
 | `itineraries` | 收藏的完整行程 |
 | `expenses` | 消费账本与私有凭证路径 |
 | `checkins` | 景点评分、点评、打卡和照片 URL |
@@ -141,6 +162,7 @@ RAG 第一版计划增加 `profiles.preferences`、`item_feedback` 和 `user_mem
 - 高德：`AMAP_WEB_SERVICE_KEY`
 - 和风天气：`QWEATHER_API_HOST`、`QWEATHER_API_KEY`
 - 腾讯云短信：见根目录 `DEPLOY.md`
+- 微信小程序：`WECHAT_APP_ID`、`WECHAT_APP_SECRET`、`WECHAT_IDENTITY_PEPPER`、`SUPABASE_SECRET_KEY`、`SUPABASE_JWT_PRIVATE_JWK`；可选 `WECHAT_TOKEN_TTL_SECONDS`
 
 任何模型、短信或 service role 密钥都不得进入 `VITE_` 变量或前端代码。
 
@@ -154,6 +176,7 @@ RAG 第一版计划增加 `profiles.preferences`、`item_feedback` 和 `user_mem
 - 当前限流仅在单个 serverless 实例内，扩大内测前需要持久化限流。
 - 打卡照片当前使用公开 URL，扩大内测前需要复核隐私和访问策略。
 - 账本凭证使用私有桶和用户目录 RLS，删除消费时同步删除图片。
+- 微信 code、openid/unionid 和所有私钥不进入客户端日志；身份表只允许服务端访问，JWT 使用导入 Supabase 的 ES256 key 签发。
 
 ## 9. 测试与发布
 
@@ -164,7 +187,7 @@ pnpm test
 pnpm build
 ```
 
-当前自动化测试覆盖 18 项，包括：鉴权、限流、参数边界、行程结构、Kimi 多模态请求、票据脱敏、天气、预警、高德、手机号规范化、短信 Hook，以及 Supabase 表、RLS、账本凭证字段和存储策略迁移契约。
+当前自动化测试覆盖 23 项，包括：鉴权、限流、参数边界、行程结构、Kimi 多模态请求、票据脱敏、天气、预警、高德、手机号规范化、短信 Hook、Supabase 迁移契约，以及微信 code 交换、身份哈希、账号复用和 ES256 JWT。
 
 发布流程：
 
@@ -182,6 +205,7 @@ pnpm build
 - 票据自动记账要求识别到价格；缺失时由用户补金额，10 分钟内同分类、金额和标题的自动记录会去重。
 - 高德和和风天气代码已接入，线上凭据尚未全部配置。
 - 手机认证等待短信企业资质、签名、模板和 Supabase Phone Provider。
+- 微信登录等待真实 AppID/AppSecret、Supabase 管理密钥和 ES256 signing key、生产迁移、自有域名与真机验收。
 - 用户偏好尚未结构化沉淀并反哺生成。
 - 通用模型格式错误尚未自动重试。
 - 限流尚未持久化。

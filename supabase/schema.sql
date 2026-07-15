@@ -14,6 +14,17 @@ drop policy if exists "own profile" on public.profiles;
 create policy "own profile" on public.profiles
   for all using (auth.uid() = id) with check (auth.uid() = id);
 
+-- 微信小程序身份映射。只允许服务端管理，不向 anon/authenticated 暴露。
+create table if not exists public.wechat_identities (
+  user_id       uuid primary key references auth.users (id) on delete cascade,
+  openid_hash   text not null unique,
+  unionid_hash  text unique,
+  created_at    timestamptz not null default now(),
+  last_login_at timestamptz not null default now()
+);
+alter table public.wechat_identities enable row level security;
+revoke all on table public.wechat_identities from anon, authenticated;
+
 -- 行程（替代 localStorage，跨设备）
 create table if not exists public.itineraries (
   id         uuid primary key default gen_random_uuid(),

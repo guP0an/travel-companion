@@ -41,6 +41,12 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 | `TENCENT_SMS_SDK_APP_ID` | （短信开通时填写） | 腾讯云短信应用 ID |
 | `TENCENT_SMS_SIGN_NAME` | （审核通过的签名） | 验证码短信签名 |
 | `TENCENT_SMS_TEMPLATE_ID` | （审核通过的模板 ID） | 验证码模板，首个参数必须是验证码 |
+| `WECHAT_APP_ID` | （微信小程序 AppID） | 服务端调用微信 code2Session |
+| `WECHAT_APP_SECRET` | （微信小程序 AppSecret） | **仅服务端，绝不进入小程序包** |
+| `WECHAT_IDENTITY_PEPPER` | （至少 16 字节随机值） | HMAC 哈希 openid/unionid |
+| `SUPABASE_SECRET_KEY` | （Supabase secret key） | 服务端创建和映射微信用户，绕过 RLS；绝不进入前端 |
+| `SUPABASE_JWT_PRIVATE_JWK` | （导入 Supabase 并启用的 ES256 私有 JWK JSON） | 签发小程序短时 Supabase JWT |
+| `WECHAT_TOKEN_TTL_SECONDS` | `3600` | 小程序访问令牌有效期，允许 300–86400 秒 |
 | `VITE_SUPABASE_URL` | `https://eqfmzfomeuwwdgwfhoha.supabase.co` | 前端连 Supabase（publishable key 受 RLS 保护，可公开） |
 | `VITE_SUPABASE_ANON_KEY` | （Supabase 项目的 anon key） | |
 
@@ -85,6 +91,16 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 4. Supabase → Authentication → Providers → Phone 启用 Phone Provider；保持 OTP 最短发送间隔不低于 60 秒，并配置 CAPTCHA、单手机号/IP 频率限制和费用告警。
 5. 无需修改前端：页面探测到 `external.phone=true` 后自动开放“手机验证码 / 手机密码”，并把手机验证码作为默认入口。
 6. 用一个真实测试手机号验证：验证码登录、手机密码注册、手机密码登录、忘记密码、重复发送限制和账号数据隔离。
+
+### 开通微信小程序登录
+
+1. 在微信公众平台注册并认证小程序，取得 AppID/AppSecret；`AppSecret` 只写入 Vercel Sensitive Environment Variable。
+2. 在生产 Supabase 执行最新 `supabase/schema.sql`，创建只允许服务端访问的 `wechat_identities`。
+3. 运行 `supabase gen signing-key --algorithm ES256`，在 Supabase Authentication → JWT Signing Keys 导入并按官方流程启用；同一份私有 JWK 写入 Vercel `SUPABASE_JWT_PRIVATE_JWK`。
+4. 在 Vercel 配齐微信登录六项环境变量并重新部署；接口为 `POST /api/wechat-auth`。
+5. 绑定丸丸自有 HTTPS 域名，在微信公众平台加入 request 合法域名，并更新 `miniprogram/config.js`。
+6. 在微信开发者工具中换成真实 AppID，验证首次登录、重复登录、过期续登、数据隔离和无效 code。
+7. 完整操作见 [docs/12-wechat-mini-program.md](docs/12-wechat-mini-program.md)。
 
 ### 开通特殊天气预警
 
