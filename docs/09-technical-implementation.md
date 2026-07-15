@@ -164,15 +164,16 @@ pnpm test
 pnpm build
 ```
 
-当前自动化测试覆盖 14 项，包括：鉴权、限流、参数边界、行程结构、Kimi 多模态请求、票据脱敏、天气、预警、高德、手机号规范化和短信 Hook。
+当前自动化测试覆盖 18 项，包括：鉴权、限流、参数边界、行程结构、Kimi 多模态请求、票据脱敏、天气、预警、高德、手机号规范化、短信 Hook，以及 Supabase 表、RLS、账本凭证字段和存储策略迁移契约。
 
 发布流程：
 
-1. 运行测试和生产构建。
-2. 提交并推送 GitHub `master`。
-3. Vercel 自动生成 Production Deployment。
-4. 检查 GitHub commit status 为 success。
-5. 线上执行登录、生成、识图、收藏、账本和打卡冒烟。
+1. 根据变更先新增或更新测试用例；数据库迁移必须有结构和权限断言。
+2. 运行测试和生产构建。
+3. 提交并推送 GitHub `master`。
+4. Vercel 自动生成 Production Deployment。
+5. 检查 GitHub commit status 为 success。
+6. 线上执行登录、生成、识图、收藏、账本和打卡冒烟。
 
 ## 10. 当前已知缺口
 

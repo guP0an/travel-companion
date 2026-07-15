@@ -59,11 +59,13 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 
 当前采用 **GitHub + Vercel 自动部署**：
 
-1. 把 `master` 推送到 `origin`。
-2. 在 Vercel 项目 `travel-companion` 中确认 Git Repository 指向 `guP0an/travel-companion`，Production Branch 为 `master`。
-3. Framework Preset 选择 Vite；Build Command 使用 `pnpm build`（或自动检测），Output Directory 为 `dist`。
-4. 在 Settings → Environment Variables 配齐 DeepSeek 和 Supabase 的必需变量；需要直接识图时增加 Kimi 三项变量，按需增加高德、和风天气及短信变量。覆盖 Production；需要预览环境时再同步到 Preview。
-5. 触发 Production Deployment，记录最终 `https://*.vercel.app` 域名。
+1. 先为本次功能或迁移补充测试用例；数据库变更必须覆盖表、RLS、字段、存储桶和访问策略。
+2. 运行 `pnpm test` 和 `pnpm build`，全部通过后再发布。
+3. 把 `master` 推送到 `origin`。
+4. 在 Vercel 项目 `travel-companion` 中确认 Git Repository 指向 `guP0an/travel-companion`，Production Branch 为 `master`。
+5. Framework Preset 选择 Vite；Build Command 使用 `pnpm build`（或自动检测），Output Directory 为 `dist`。
+6. 在 Settings → Environment Variables 配齐 DeepSeek 和 Supabase 的必需变量；需要直接识图时增加 Kimi 三项变量，按需增加高德、和风天气及短信变量。覆盖 Production；需要预览环境时再同步到 Preview。
+7. 触发 Production Deployment，记录最终 `https://*.vercel.app` 域名，并执行线上冒烟测试。
 
 本地 CLI 仅作为故障排查备用，不作为当前主流程。
 
