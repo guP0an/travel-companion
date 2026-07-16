@@ -3,15 +3,15 @@
 丸丸前端是纯静态（Vite 打包到 `dist`），DeepSeek 代理是 `api/` 下的 serverless 函数（key 只在服务端）。
 Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 
-## 当前部署状态（2026-07-15）
+## 当前部署状态（2026-07-16）
 
 - GitHub 仓库已存在：`guP0an/travel-companion`，发布分支为 `master`。
 - 本地已关联 Vercel 项目 `travel-companion`（项目 ID 已保存在未提交的 `.vercel/project.json`）。
 - Vercel 已连接 GitHub，`master` 推送会自动部署；最新生产部署已验证为 Ready。
-- 正式访问地址：`https://travel-companion-two-murex.vercel.app`，页面渲染冒烟检查已通过。
-- Vercel Production 已切换到 Supabase 项目 `travel-wanwan`；认证服务健康检查为 200，线上登录已从网络错误恢复为正常鉴权响应。
+- 正式访问地址：`https://wanwantrip.online`，旧 Vercel 地址保留为备用入口。
+- Vercel Production 已切换到 GitHub 登录账号可管理的 Supabase 项目 `travel-wanwan`；线上无效账号登录已返回正常鉴权错误，不再出现网络错误。
 - Supabase 四张业务表、RLS、`checkin-photos` 与 `expense-receipts` 存储桶、正式 Site URL 和密码重置回跳均已配置并验证。
-- 新 Supabase 项目 ref 为 `eqfmzfomeuwwdgwfhoha`，旧项目数据已按迁移决策放弃；线上从新库重新开始。
+- 当前 Supabase 项目 ref 为 `pdlpiugjluwztvbpaukf`；原有测试行程保留，最新表结构、微信身份表和图片存储策略已补齐。此前误建在其他账号下的 `eqfmzfomeuwwdgwfhoha` 不再用于生产。
 - `/api/ai` 已强制登录并有基础限流；模型返回、天气事实和可选高德事实层均有自动化测试。
 - 手机验证码、手机密码和邮箱三种认证界面已完成；页面会读取 Supabase Auth Settings，Phone Provider 未启用时自动保持邮箱入口。
 - Supabase Send SMS Hook 与腾讯云 SMS 签名调用已完成；正式开放手机号入口仍需企业短信资质、签名和模板审核。
@@ -47,8 +47,8 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 | `SUPABASE_SECRET_KEY` | （Supabase secret key） | 服务端创建和映射微信用户，绕过 RLS；绝不进入前端 |
 | `SUPABASE_JWT_PRIVATE_JWK` | （导入 Supabase 并启用的 ES256 私有 JWK JSON） | 签发小程序短时 Supabase JWT |
 | `WECHAT_TOKEN_TTL_SECONDS` | `3600` | 小程序访问令牌有效期，允许 300–86400 秒 |
-| `VITE_SUPABASE_URL` | `https://eqfmzfomeuwwdgwfhoha.supabase.co` | 前端连 Supabase（publishable key 受 RLS 保护，可公开） |
-| `VITE_SUPABASE_ANON_KEY` | （Supabase 项目的 anon key） | |
+| `VITE_SUPABASE_URL` | `https://pdlpiugjluwztvbpaukf.supabase.co` | 前端连 Supabase（publishable key 受 RLS 保护，可公开） |
+| `VITE_SUPABASE_ANON_KEY` | （Supabase 项目的 publishable key） | |
 
 > `VITE_` 开头的会在打包时写进前端（公开，没关系）；其余只在 serverless 运行时读取。
 
@@ -86,7 +86,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 ### 开通手机号登录
 
 1. 在腾讯云完成企业实名认证、短信应用、签名、验证码模板和运营商实名报备；当前国内验证码短信不支持个人资质直接上线。
-2. 把审核通过的腾讯云参数及 `SUPABASE_SMS_HOOK_SECRET` 配到 Vercel Production，Hook 地址为 `https://travel-companion-two-murex.vercel.app/api/send-sms`。
+2. 把审核通过的腾讯云参数及 `SUPABASE_SMS_HOOK_SECRET` 配到 Vercel Production，Hook 地址为 `https://wanwantrip.online/api/send-sms`。
 3. Supabase → Authentication → Hooks → Send SMS，启用 HTTP Hook，填入上述地址并保存生成的 Hook Secret。
 4. Supabase → Authentication → Providers → Phone 启用 Phone Provider；保持 OTP 最短发送间隔不低于 60 秒，并配置 CAPTCHA、单手机号/IP 频率限制和费用告警。
 5. 无需修改前端：页面探测到 `external.phone=true` 后自动开放“手机验证码 / 手机密码”，并把手机验证码作为默认入口。
