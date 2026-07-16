@@ -128,11 +128,13 @@ export default function App() {
       {view === 'ledger' && (
         <main className="library-view"><Ledger onBack={() => setView('plan')} /></main>
       )}
-        <main className="planner-workspace" hidden={view !== 'plan'}>
+        <main className={`planner-workspace${generated ? ' has-itinerary' : ''}`} hidden={view !== 'plan'}>
           <aside className="planner-sidebar" ref={plannerRef}>
             <div className="planner-intro">
               <div className="section-eyebrow">AI TRAVEL CONCIERGE</div>
-              <h1 className="font-serif">把想去的地方<br />交给丸丸</h1>
+              <h1 className="font-serif">
+                把想去的地方<span className="planner-title-break"><br /></span>交给丸丸
+              </h1>
               <p>说目的地，也可以只丢给我一张票。丸丸会结合天气、节奏和你的偏好，排成一份能直接出发的行程。</p>
             </div>
             <PlanForm

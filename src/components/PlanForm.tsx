@@ -224,7 +224,7 @@ export default function PlanForm({
         style={{ fieldSizing: 'content', width: '100%', minHeight: '28px', border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', outline: 'none', resize: 'none', color: 'var(--color-ink)', fontSize: '15px', lineHeight: 1.8, padding: '6px 2px', display: 'block' } as React.CSSProperties}
       />
 
-      <div className="flex items-center gap-2 mt-4">
+      <div className="plan-options-row flex items-center gap-2">
         <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>玩</span>
         <input
           type="number"
@@ -238,7 +238,7 @@ export default function PlanForm({
         <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>天</span>
       </div>
 
-      <div className="flex gap-5 mt-4">
+      <div className="plan-pace-row flex gap-5">
         {PACE.map((p) => (
           <button
             key={p.v}
@@ -259,7 +259,7 @@ export default function PlanForm({
       </div>
 
       {/* 上传票务截图，丸丸自己读 */}
-      <div className="mt-5">
+      <div className="plan-upload-row">
         <label
           style={{
             display: 'inline-block',
