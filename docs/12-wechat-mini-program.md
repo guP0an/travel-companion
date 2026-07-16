@@ -1,7 +1,7 @@
 # 12 · 微信小程序与微信登录
 
-> 状态：代码地基已完成，待微信平台参数与生产密钥配置
-> 最近更新：2026-07-15
+> 状态：小程序登录链路与客户端会话已完成，待微信平台参数与生产密钥配置
+> 最近更新：2026-07-16
 > 用途：说明丸丸小程序的登录架构、部署步骤、安全边界和验收标准。
 
 ## 1. 为什么不能直接复用网页登录
@@ -27,9 +27,10 @@
 |---|---|
 | `api/wechat-auth.ts` | 校验 code、调用微信、映射用户、签发短时 JWT、基础限流 |
 | `supabase/schema.sql` | `wechat_identities` 身份映射表；RLS 开启且不向客户端授权 |
-| `miniprogram/services/auth.js` | `wx.login`、换取会话、本地短时缓存和自动续登 |
+| `miniprogram/services/auth.js` | `wx.login`、换取会话、过期清理、本地短时缓存、自动续登和 Bearer 请求头 |
 | `miniprogram/pages/login/*` | 小程序微信登录首屏 |
 | `tests/wechat-auth.test.mjs` | code 交换、错误处理、身份哈希、账号复用和 JWT 权限测试 |
+| `tests/wechat-client-auth.test.mjs` | 小程序缓存过期、登录交换、令牌复用、Bearer 请求头和失败提示测试 |
 | `project.config.json` | 微信开发者工具项目入口；当前使用游客 AppID |
 
 ## 3. 生产启用步骤
@@ -61,10 +62,17 @@
 5. JWT 过期后小程序自动重新登录，旧 token 不再被接受。
 6. AppSecret、管理密钥和私钥不出现在小程序包、Git、接口响应与日志中。
 
-## 6. 当前未完成
+## 6. 与网页微信登录的边界
+
+- 本文实现的是小程序内的 `wx.login` 一键登录，不需要用户扫码。
+- PC 网页扫码登录需要微信开放平台网站应用。
+- 微信内 H5 跳转授权需要公众号网页 OAuth。
+- 后两项使用不同的资质、回调和授权流程，不能直接复用小程序 AppID/AppSecret，后续单独规划。
+
+## 7. 当前未完成
 
 - 尚未取得并配置真实微信 `AppID/AppSecret`。
 - 尚未在 Supabase 导入并启用 ES256 signing key。
-- 尚未把 `wechat_identities` 迁移到生产库。
-- 尚未配置微信 request 合法域名；正式提交前应先绑定丸丸自有域名。
+- 生产库已创建 `wechat_identities`；仍需用真实微信用户完成同账号重复登录验证。
+- 尚未在微信公众平台配置 `wanwantrip.online` 为 request 合法域名。
 - 当前只有登录骨架，规划、行程、账本和打卡页面还需逐步迁移为小程序页面。
