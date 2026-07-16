@@ -13,9 +13,9 @@
     <view class="summary">登录后同步行程、票据、账本和打卡。</view>
 
     <button wx:if="{{!loggedIn}}" class="login-button" loading="{{busy}}" disabled="{{busy}}" bindtap="handleLogin">
-      微信登录
+      微信一键登录
     </button>
-    <view wx:else class="success-line">已登录，可以开始规划了</view>
+    <view wx:else class="success-line">微信已登录，行程和账本会同步保存</view>
     <view wx:if="{{message}}" class="message">{{message}}</view>
   </view>
 
