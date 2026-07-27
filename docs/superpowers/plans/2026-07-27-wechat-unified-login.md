@@ -59,7 +59,7 @@ test('H5 and PC authorization URLs use their own app credentials', () => {
 
 - [ ] **Step 2: Compile and run the test to verify RED**
 
-Run: `pnpm exec tsc -b && node --test tests/wechat-oauth.test.mjs`  
+Run: `pnpm exec tsc -b && node --test tests/wechat-oauth.test.mjs`
 Expected: FAIL because `api/wechat-oauth.ts` or its exports do not exist.
 
 - [ ] **Step 3: Implement the minimum provider helpers**
@@ -89,7 +89,7 @@ Exchange callback code through `https://api.weixin.qq.com/sns/oauth2/access_toke
 
 - [ ] **Step 4: Run targeted tests**
 
-Run: `pnpm exec tsc -b && node --test tests/wechat-oauth.test.mjs`  
+Run: `pnpm exec tsc -b && node --test tests/wechat-oauth.test.mjs`
 Expected: all Task 1 tests PASS.
 
 - [ ] **Step 5: Commit**
@@ -143,7 +143,7 @@ test('callback resolves the WeChat user and redirects through Supabase verify', 
 
 - [ ] **Step 2: Run targeted tests to verify RED**
 
-Run: `pnpm exec tsc -b && node --test tests/wechat-oauth.test.mjs tests/wechat-auth.test.mjs`  
+Run: `pnpm exec tsc -b && node --test tests/wechat-oauth.test.mjs tests/wechat-auth.test.mjs`
 Expected: FAIL because the handler and Magic Link handoff are missing.
 
 - [ ] **Step 3: Reuse the existing Supabase store**
@@ -178,7 +178,7 @@ Check every Supabase error and throw `WechatOauthError(502, ...)`; never return 
 
 - [ ] **Step 5: Run targeted and existing WeChat tests**
 
-Run: `pnpm exec tsc -b && node --test tests/wechat-oauth.test.mjs tests/wechat-auth.test.mjs tests/wechat-client-auth.test.mjs`  
+Run: `pnpm exec tsc -b && node --test tests/wechat-oauth.test.mjs tests/wechat-auth.test.mjs tests/wechat-client-auth.test.mjs`
 Expected: all WeChat tests PASS.
 
 - [ ] **Step 6: Commit**
@@ -224,7 +224,7 @@ Also assert `maskAccount(null, '<uuid>@wechat.wanwan.invalid') === '微信用户
 
 - [ ] **Step 2: Run tests to verify RED**
 
-Run: `pnpm exec tsc -b && node --test tests/api-security.test.mjs tests/wechat-web-ui.test.mjs`  
+Run: `pnpm exec tsc -b && node --test tests/api-security.test.mjs tests/wechat-web-ui.test.mjs`
 Expected: FAIL because the helper and UI are missing.
 
 - [ ] **Step 3: Add the minimum UI behavior**
@@ -236,4 +236,3 @@ Expected: FAIL because the helper and UI are missing.
 - Read `wechat=failed` once and show “微信登录暂时没有成功，请稍后重试”.
 - Label H5 as “微信登录” and desktop as “微信扫码登录”.
 - Add only the divider/button CSS needed to match the existing popover.
-

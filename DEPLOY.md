@@ -3,7 +3,7 @@
 丸丸前端是纯静态（Vite 打包到 `dist`），DeepSeek 代理是 `api/` 下的 serverless 函数（key 只在服务端）。
 Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 
-## 当前部署状态（2026-07-16）
+## 当前部署状态（2026-07-27）
 
 - GitHub 仓库已存在：`guP0an/travel-companion`，发布分支为 `master`。
 - 本地已关联 Vercel 项目 `travel-companion`（项目 ID 已保存在未提交的 `.vercel/project.json`）。
@@ -43,6 +43,12 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 | `TENCENT_SMS_TEMPLATE_ID` | （审核通过的模板 ID） | 验证码模板，首个参数必须是验证码 |
 | `WECHAT_APP_ID` | （微信小程序 AppID） | 服务端调用微信 code2Session |
 | `WECHAT_APP_SECRET` | （微信小程序 AppSecret） | **仅服务端，绝不进入小程序包** |
+| `WECHAT_H5_APP_ID` | （已认证公众号 AppID） | 微信内网页 OAuth |
+| `WECHAT_H5_APP_SECRET` | （公众号 AppSecret） | **仅服务端** |
+| `WECHAT_WEB_APP_ID` | （开放平台网站应用 AppID） | PC 微信扫码登录 |
+| `WECHAT_WEB_APP_SECRET` | （开放平台网站应用 AppSecret） | **仅服务端** |
+| `WECHAT_OAUTH_STATE_SECRET` | （至少 32 字节随机值） | 签名网页 OAuth state，防止登录劫持 |
+| `WECHAT_OAUTH_ORIGIN` | `https://wanwantrip.online` | 限定登录回跳来源 |
 | `WECHAT_IDENTITY_PEPPER` | （至少 16 字节随机值） | HMAC 哈希 openid/unionid |
 | `SUPABASE_SECRET_KEY` | （Supabase secret key） | 服务端创建和映射微信用户，绕过 RLS；绝不进入前端 |
 | `SUPABASE_JWT_PRIVATE_JWK` | （导入 Supabase 并启用的 ES256 私有 JWK JSON） | 签发小程序短时 Supabase JWT |
@@ -70,7 +76,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 3. 把 `master` 推送到 `origin`。
 4. 在 Vercel 项目 `travel-companion` 中确认 Git Repository 指向 `guP0an/travel-companion`，Production Branch 为 `master`。
 5. Framework Preset 选择 Vite；Build Command 使用 `pnpm build`（或自动检测），Output Directory 为 `dist`。
-6. 在 Settings → Environment Variables 配齐 DeepSeek 和 Supabase 的必需变量；需要直接识图时增加 Kimi 三项变量，按需增加高德、和风天气及短信变量。覆盖 Production；需要预览环境时再同步到 Preview。
+6. 在 Settings → Environment Variables 配齐 DeepSeek 和 Supabase 的必需变量；需要直接识图时增加 Kimi 三项变量，按需增加高德、和风天气、短信和三端微信登录变量。覆盖 Production；需要预览环境时再同步到 Preview。
 7. 触发 Production Deployment，记录最终 `https://*.vercel.app` 域名，并执行线上冒烟测试。
 
 本地 CLI 仅作为故障排查备用，不作为当前主流程。
@@ -92,15 +98,18 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 5. 无需修改前端：页面探测到 `external.phone=true` 后自动开放“手机验证码 / 手机密码”，并把手机验证码作为默认入口。
 6. 用一个真实测试手机号验证：验证码登录、手机密码注册、手机密码登录、忘记密码、重复发送限制和账号数据隔离。
 
-### 开通微信小程序登录
+### 开通微信三端登录
 
-1. 在微信公众平台注册并认证小程序，取得 AppID/AppSecret；`AppSecret` 只写入 Vercel Sensitive Environment Variable。
+1. 在微信公众平台注册并认证小程序，取得小程序 AppID/AppSecret；`AppSecret` 只写入 Vercel Sensitive Environment Variable。
 2. 在生产 Supabase 执行最新 `supabase/schema.sql`，创建只允许服务端访问的 `wechat_identities`。
 3. 运行 `supabase gen signing-key --algorithm ES256`，在 Supabase Authentication → JWT Signing Keys 导入并按官方流程启用；同一份私有 JWK 写入 Vercel `SUPABASE_JWT_PRIVATE_JWK`。
-4. 在 Vercel 配齐微信登录六项环境变量并重新部署；接口为 `POST /api/wechat-auth`。
+4. 在 Vercel 配齐小程序微信登录环境变量并重新部署；接口为 `POST /api/wechat-auth`。
 5. 绑定丸丸自有 HTTPS 域名，在微信公众平台加入 request 合法域名，并更新 `miniprogram/config.js`。
 6. 在微信开发者工具中换成真实 AppID，验证首次登录、重复登录、过期续登、数据隔离和无效 code。
-7. 完整操作见 [docs/12-wechat-mini-program.md](docs/12-wechat-mini-program.md)。
+7. 微信内网页登录需认证公众号，在公众号后台把 `wanwantrip.online` 配为网页授权域名，并配置 `WECHAT_H5_APP_ID`、`WECHAT_H5_APP_SECRET`。
+8. PC 扫码登录需微信开放平台已审核的网站应用，把回调域名配置为 `wanwantrip.online`，并配置 `WECHAT_WEB_APP_ID`、`WECHAT_WEB_APP_SECRET`。
+9. 网页两种模式共用 `GET /api/wechat-oauth`，还需配置 `WECHAT_OAUTH_STATE_SECRET` 与 `WECHAT_OAUTH_ORIGIN`。
+10. 分别使用小程序真机、微信内网页和 PC 扫码完成验收，确认三端登录后都能访问同一用户的行程、账本和票据。完整操作见 [docs/12-wechat-mini-program.md](docs/12-wechat-mini-program.md)。
 
 ### 开通特殊天气预警
 
