@@ -1,8 +1,8 @@
-import { createHmac } from 'node:crypto'
+import { createHmac, randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { SignJWT, importJWK, type JWK } from 'jose'
 
-type Env = Record<string, string | undefined>
+export type Env = Record<string, string | undefined>
 type FetchLike = typeof fetch
 
 interface WechatCodeSession {
@@ -115,12 +115,15 @@ export async function mintSupabaseAccessToken(userId: string, env: Env, now = ne
     .sign(key)
 }
 
-export function createSupabaseWechatStore(env: Env): WechatAccountStore {
+export function createSupabaseAdmin(env: Env) {
   const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL
   const secretKey = env.SUPABASE_SECRET_KEY
   if (!url || !secretKey) throw new WechatAuthError(503, 'Supabase admin config missing')
-  const client = createClient(url, secretKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  return createClient(url, secretKey, { auth: { autoRefreshToken: false, persistSession: false } })
+}
 
+export function createSupabaseWechatStore(env: Env): WechatAccountStore {
+  const client = createSupabaseAdmin(env)
   return {
     async findUserId(openidHash, unionidHash) {
       const find = async (column: 'openid_hash' | 'unionid_hash', value: string) => {
@@ -138,6 +141,8 @@ export function createSupabaseWechatStore(env: Env): WechatAccountStore {
     },
     async createUser() {
       const { data, error } = await client.auth.admin.createUser({
+        email: `wechat-${randomUUID()}@wechat.wanwan.invalid`,
+        email_confirm: true,
         app_metadata: { provider: 'wechat', providers: ['wechat'] },
         user_metadata: { source: 'wechat-mini-program' },
       })
