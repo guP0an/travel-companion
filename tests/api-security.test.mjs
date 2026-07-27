@@ -20,6 +20,7 @@ import {
 } from '../node_modules/.tmp-tsnode/api/ai.js'
 import {
   friendlyAuthError,
+  getWechatLoginMode,
   maskAccount,
   normalizeMainlandPhone,
 } from '../node_modules/.tmp-tsnode/shared/auth.js'
@@ -192,8 +193,16 @@ test('mainland phone auth values are normalized and masked safely', () => {
   assert.equal(normalizeMainlandPhone('+86 13800138000'), '+8613800138000')
   assert.equal(normalizeMainlandPhone('12345'), null)
   assert.equal(maskAccount('+8613800138000', null), '+86 138****8000')
+  assert.equal(maskAccount(null, 'user@wechat.wanwan.invalid'), '微信用户')
   assert.equal(friendlyAuthError('Invalid login credentials'), '账号或密码不正确')
   assert.equal(friendlyAuthError('Unsupported phone provider'), '手机短信服务尚未开通，请暂时使用邮箱登录')
+})
+
+test('web WeChat login selects only an available mode for the current browser', () => {
+  assert.equal(getWechatLoginMode('MicroMessenger/8.0', { h5: true, web: true }), 'h5')
+  assert.equal(getWechatLoginMode('Chrome', { h5: true, web: true }), 'web')
+  assert.equal(getWechatLoginMode('Chrome', { h5: true, web: false }), null)
+  assert.equal(getWechatLoginMode('MicroMessenger/8.0', { h5: false, web: true }), null)
 })
 
 test('Supabase SMS hook signature is verified with replay protection', () => {

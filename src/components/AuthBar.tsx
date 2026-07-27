@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { friendlyAuthError, maskAccount, normalizeMainlandPhone, type AuthMethod } from '../../shared/auth'
+import {
+  friendlyAuthError,
+  getWechatLoginMode,
+  maskAccount,
+  normalizeMainlandPhone,
+  type AuthMethod,
+} from '../../shared/auth'
 import { isPhoneAuthEnabled, supabase } from '../lib/supabase'
 import { useSession } from '../lib/useSession'
 
@@ -32,6 +38,7 @@ export default function AuthBar() {
   const session = useSession()
   const [method, setMethod] = useState<AuthMethod>('email')
   const [phoneEnabled, setPhoneEnabled] = useState(false)
+  const [wechatMode, setWechatMode] = useState<'h5' | 'web' | null>(null)
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
@@ -41,7 +48,10 @@ export default function AuthBar() {
   const [countdown, setCountdown] = useState(0)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  const [expanded, setExpanded] = useState(() => new URLSearchParams(window.location.search).get('reset') === '1')
+  const [expanded, setExpanded] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('reset') === '1' || params.get('wechat') === 'failed'
+  })
   const [mode, setMode] = useState<ViewMode>(() =>
     new URLSearchParams(window.location.search).get('reset') === '1' ? 'update-password' : 'login',
   )
@@ -64,6 +74,33 @@ export default function AuthBar() {
   }, [])
 
   useEffect(() => {
+    let active = true
+    fetch('/api/wechat-oauth?mode=status', { headers: { accept: 'application/json' } })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((availability: { h5: boolean; web: boolean }) => {
+        if (active) setWechatMode(getWechatLoginMode(navigator.userAgent, availability))
+      })
+      .catch(() => {
+        if (active) setWechatMode(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const result = url.searchParams.get('wechat')
+    if (!result) return
+    if (result === 'failed') {
+      setMsg('微信登录暂时没有成功，请稍后重试')
+      setExpanded(true)
+    }
+    url.searchParams.delete('wechat')
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
+
+  useEffect(() => {
     if (countdown <= 0) return
     const timer = window.setInterval(() => setCountdown((value) => Math.max(0, value - 1)), 1000)
     return () => window.clearInterval(timer)
@@ -78,6 +115,12 @@ export default function AuthBar() {
   const switchMethod = (next: AuthMethod) => {
     setMethod(next)
     resetFeedback()
+  }
+
+  const startWechatLogin = () => {
+    if (!wechatMode) return
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    window.location.href = `/api/wechat-oauth?mode=${wechatMode}&returnTo=${encodeURIComponent(returnTo)}`
   }
 
   const runBusy = async (action: () => Promise<void>) => {
@@ -269,6 +312,14 @@ export default function AuthBar() {
   return panel(
     <div>
       <div className="auth-helper">登录后行程存到云端 · 跨设备可见</div>
+      {wechatMode && (
+        <>
+          <button className="auth-wechat-button" onClick={startWechatLogin}>
+            {wechatMode === 'h5' ? '微信登录' : '微信扫码登录'}
+          </button>
+          <div className="auth-divider"><span>或</span></div>
+        </>
+      )}
       <div className="auth-tabs" role="tablist" aria-label="登录方式">
         {([
           ['phone-otp', '手机验证码'],

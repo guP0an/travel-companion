@@ -472,6 +472,34 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   line-height: 1;
 }
 .auth-helper { margin-bottom: 11px; color: var(--color-ink-faint); font-size: 11px; letter-spacing: 0.04em; line-height: 1.6; }
+.auth-wechat-button {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #15803d;
+  border-radius: 4px;
+  background: #15803d;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.auth-wechat-button:hover {
+  background: #166534;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 13px 0 8px;
+  color: var(--color-ink-faint);
+  font-size: 10px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--color-line);
+}
 .day-quick-nav, .mobile-action-bar { display: none; }
 
 .auth-tabs {

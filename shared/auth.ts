@@ -9,7 +9,18 @@ export function normalizeMainlandPhone(value: string): string | null {
 
 export function maskAccount(phone?: string | null, email?: string | null): string {
   if (phone) return phone.replace(/(\+86)(\d{3})\d{4}(\d{4})/, '$1 $2****$3')
+  if (email?.endsWith('@wechat.wanwan.invalid')) return '微信用户'
   return email || '丸丸用户'
+}
+
+export function getWechatLoginMode(
+  userAgent: string,
+  availability: { h5: boolean; web: boolean },
+): 'h5' | 'web' | null {
+  if (/MicroMessenger/i.test(userAgent)) {
+    return availability.h5 ? 'h5' : null
+  }
+  return availability.web ? 'web' : null
 }
 
 export function friendlyAuthError(message: string): string {
