@@ -351,6 +351,51 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   margin: 0 auto;
   padding: 48px 0;
 }
+.ledger-header-actions {
+  display: flex;
+  gap: 14px;
+}
+.ledger-header-actions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ledger-directory {
+  border-bottom: 1px solid var(--color-line);
+}
+.ledger-directory > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 19px 4px;
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  text-align: left;
+}
+.ledger-directory > button > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ledger-directory strong { font-size: 17px; font-weight: 400; }
+.ledger-directory small { color: var(--color-ink-faint); font-size: 11px; }
+.ledger-directory b { color: var(--color-ink-soft); font-size: 17px; font-weight: 400; }
+.ledger-directory > p {
+  margin: 0;
+  padding: 36px 0;
+  color: var(--color-ink-faint);
+  font-size: 13px;
+  text-align: center;
+}
 .ledger-receipt-picker {
   display: flex;
   align-items: center;
@@ -425,6 +470,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.ledger-row-main select {
+  max-width: 170px;
+  margin-top: 8px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  background: var(--color-paper);
+  color: var(--color-qing);
+  font-size: 11px;
+}
+.ledger-category {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-qing-soft);
+  color: var(--color-qing);
+  font-size: 11px;
 }
 .ledger-row .ledger-receipt-images { margin-top: 7px; }
 .ledger-row > button {

@@ -125,7 +125,7 @@ async function uploadExpenseReceipts(files: File[], userId: string): Promise<str
 }
 
 export async function addExpense(
-  e: { itinerary_id?: string | null; category: string; amount: number; note: string; spent_at?: string },
+  e: { itinerary_id: string; category: string; amount: number; note: string; spent_at?: string },
   receiptFiles: File[] = [],
 ): Promise<void> {
   const {
@@ -135,7 +135,7 @@ export async function addExpense(
   const receiptPaths = receiptFiles.length ? await uploadExpenseReceipts(receiptFiles, user.id) : []
   const row: Record<string, unknown> = {
     user_id: user.id,
-    itinerary_id: e.itinerary_id || null,
+    itinerary_id: e.itinerary_id,
     category: e.category,
     amount: e.amount,
     note: e.note,
@@ -151,11 +151,12 @@ export async function addExpense(
   }
 }
 
-export async function expenseExists(e: { category: string; amount: number; note: string }, withinMinutes = 10): Promise<boolean> {
+export async function expenseExists(itineraryId: string, e: { category: string; amount: number; note: string }, withinMinutes = 10): Promise<boolean> {
   const since = new Date(Date.now() - withinMinutes * 60_000).toISOString()
   const { data, error } = await supabase
     .from('expenses')
     .select('id')
+    .eq('itinerary_id', itineraryId)
     .eq('category', e.category)
     .eq('amount', e.amount)
     .eq('note', e.note)

@@ -10,7 +10,8 @@ import { Mascot } from './components/Mascot'
 import { IcoScroll, IcoCoin, IcoBrush } from './components/Icons'
 import { kyotoMock } from './mock/kyoto'
 import { useSession } from './lib/useSession'
-import { saveItinerary, listMyItineraries, countCheckins, type SavedItinerary } from './lib/db'
+import { saveItinerary, listMyItineraries, countCheckins, addExpense, expenseExists, type SavedItinerary } from './lib/db'
+import type { PendingExpense } from './lib/plan'
 import { growth } from './lib/growth'
 
 const PAPER = '#F7F3EA'
@@ -26,6 +27,8 @@ export default function App() {
   const [editing, setEditing] = useState(false)
   const [generated, setGenerated] = useState(false)
   const [trips, setTrips] = useState<SavedItinerary[]>([])
+  const [activeTripId, setActiveTripId] = useState<string | null>(null)
+  const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>([])
   const printRef = useRef<HTMLDivElement>(null)
   const plannerRef = useRef<HTMLElement>(null)
   const resultRef = useRef<HTMLElement>(null)
@@ -44,16 +47,45 @@ export default function App() {
 
   const g = growth(checkins)
 
+  const ensureCurrentTripSaved = async () => {
+    let itineraryId = activeTripId
+    if (!itineraryId) {
+      const saved = await saveItinerary(data)
+      itineraryId = saved.id
+      setActiveTripId(saved.id)
+      const rows = await listMyItineraries()
+      setCount(rows.length)
+    }
+    for (const expense of pendingExpenses) {
+      if (!(await expenseExists(itineraryId, expense))) {
+        await addExpense({ itinerary_id: itineraryId, category: expense.category, amount: expense.amount, note: expense.note }, expense.receiptFiles)
+      }
+    }
+    if (pendingExpenses.length) setPendingExpenses([])
+    return itineraryId
+  }
+
   const onSave = async () => {
     setSaving(true)
     setNote('')
     try {
-      await saveItinerary(data)
+      await ensureCurrentTripSaved()
       setNote('已收藏到云端')
-      const rows = await listMyItineraries()
-      setCount(rows.length)
     } catch (e) {
       setNote('收藏失败：' + (e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openLedger = async () => {
+    setSaving(true)
+    setNote('')
+    try {
+      await ensureCurrentTripSaved()
+      setView('ledger')
+    } catch (e) {
+      setNote('账本打开失败：' + (e as Error).message)
     } finally {
       setSaving(false)
     }
@@ -77,9 +109,13 @@ export default function App() {
     a.click()
   }
 
-  const showResult = (it: typeof data) => {
+  const showResult = (it: typeof data, expenses?: PendingExpense[]) => {
     setData(it)
     setGenerated(true)
+    if (expenses) {
+      setActiveTripId(null)
+      setPendingExpenses(expenses)
+    }
     if (window.matchMedia('(max-width: 820px)').matches) {
       window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
     }
@@ -116,8 +152,10 @@ export default function App() {
         <main className="library-view">
           <SavedTrips
             trips={trips}
-            onOpen={(it) => {
-              setData(it)
+            onOpen={(trip) => {
+              setData(trip.plan)
+              setActiveTripId(trip.id)
+              setPendingExpenses([])
               setGenerated(true)
               setView('plan')
             }}
@@ -126,7 +164,7 @@ export default function App() {
         </main>
       )}
       {view === 'ledger' && (
-        <main className="library-view"><Ledger onBack={() => setView('plan')} /></main>
+        <main className="library-view"><Ledger currentTripId={activeTripId} onBack={() => setView('plan')} /></main>
       )}
         <main className={`planner-workspace${generated ? ' has-itinerary' : ''}`} hidden={view !== 'plan'}>
           <aside className="planner-sidebar" ref={plannerRef}>
@@ -141,7 +179,11 @@ export default function App() {
               current={data}
               hasPlan={generated}
               onResult={showResult}
-              onReset={() => setGenerated(false)}
+              onReset={() => {
+                setGenerated(false)
+                setActiveTripId(null)
+                setPendingExpenses([])
+              }}
             />
             <div className="planner-status">
               丸丸 Lv.{g.lv} · {g.name}
@@ -190,7 +232,7 @@ export default function App() {
                         <button onClick={openSaved} className="toolbar-button">
                           <IcoScroll /> 我的行程 · {count ?? '…'} 份
                         </button>
-                        <button onClick={() => setView('ledger')} className="toolbar-button">
+                        <button onClick={openLedger} disabled={saving} className="toolbar-button">
                           <IcoCoin /> 账本
                         </button>
                         <button onClick={onSave} disabled={saving} className="toolbar-button emphasized">

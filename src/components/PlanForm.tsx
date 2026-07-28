@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import type { Itinerary } from '../types/itinerary'
-import { generatePlan, revisePlan, intakePlan, extractBookings, extractBookingsFromImage, bookingCategory, parseBookingPrice, type PlanInput, type Booking } from '../lib/plan'
+import { generatePlan, revisePlan, intakePlan, extractBookings, extractBookingsFromImage, parseBookingPrice, pendingExpensesFromBookings, type PlanInput, type Booking, type PendingExpense } from '../lib/plan'
 import type { IntakeDraft } from '../../shared/planning'
-import { addExpense, expenseExists } from '../lib/db'
 import { MascotThinking } from './Mascot'
 
 const TYPE_LABEL: Record<string, string> = {
@@ -36,7 +35,7 @@ export default function PlanForm({
   hasPlan = false,
   onReset,
 }: {
-  onResult: (it: Itinerary) => void
+  onResult: (it: Itinerary, pendingExpenses?: PendingExpense[]) => void
   current?: Itinerary
   hasPlan?: boolean
   onReset?: () => void
@@ -52,7 +51,6 @@ export default function PlanForm({
   const [intakeDraft, setIntakeDraft] = useState<IntakeDraft>()
   const [originalRequest, setOriginalRequest] = useState('')
   const [questions, setQuestions] = useState<string[]>([])
-  const [ledgerMsg, setLedgerMsg] = useState('')
   const [openSet, setOpenSet] = useState<Set<number>>(new Set())
   const toggleOpen = (bi: number) =>
     setOpenSet((s) => {
@@ -99,7 +97,6 @@ export default function PlanForm({
         const visualBookings = await extractBookingsFromImage(image)
         if (visualBookings.length > 0) {
           visualBookings.forEach((booking) => { booking.receiptFile = f })
-          await autoRecord(visualBookings, f)
           setBookings((prev) => [...prev, ...visualBookings])
           return
         }
@@ -116,61 +113,12 @@ export default function PlanForm({
       const bs = await extractBookings(text)
       if (bs.length) {
         bs.forEach((booking) => { booking.receiptFile = f })
-        await autoRecord(bs, f) // 带价格的票直接记入账本，并保留票据截图
         setBookings((prev) => [...prev, ...bs]) // 累加，不覆盖之前传的
       } else setOcrText(text)
     } catch (e) {
       setErr('识别失败：' + (e as Error).message)
     } finally {
       setOcrBusy(false)
-    }
-  }
-
-  // 识别到带价格的票/酒店，直接记入账本（交通/住宿）。未登录或账本未建表则提示。
-  const autoRecord = async (bs: Booking[], receipt?: File) => {
-    const done: string[] = []
-    for (const b of bs) {
-      const amt = parseBookingPrice(b.fields)
-      if (!amt) continue
-      const category = bookingCategory(b.type)
-      try {
-        if (await expenseExists({ category, amount: amt, note: b.title })) {
-          b.recorded = { amount: amt, category }
-          done.push(`${category} ¥${amt}（已存在）`)
-          continue
-        }
-        await addExpense({ category, amount: amt, note: b.title }, receipt ? [receipt] : [])
-        b.recorded = { amount: amt, category }
-        done.push(`${category} ¥${amt}`)
-      } catch (e) {
-        const m = (e as Error).message || ''
-        if (m.includes('未登录')) setLedgerMsg('登录后，票价会自动记入账本')
-        else if (m.includes('receipt_paths') || m.includes('expense-receipts') || m.toLowerCase().includes('bucket')) setLedgerMsg('票据已识别，凭证暂时无法保存')
-        else if (m.includes('expenses') || m.includes('schema cache')) setLedgerMsg('账本还没启用：先在 Supabase 跑 expenses 建表 SQL')
-        else setLedgerMsg('记账失败：' + m)
-        return
-      }
-    }
-    if (done.length) setLedgerMsg('已记入账本：' + done.join('、'))
-  }
-
-  const recordBooking = async (booking: Booking, index: number) => {
-    const amount = parseBookingPrice(booking.fields)
-    if (!amount) {
-      setLedgerMsg('先补一下票价，再记入账本')
-      return
-    }
-    const category = bookingCategory(booking.type)
-    try {
-      if (!(await expenseExists({ category, amount, note: booking.title }))) {
-        await addExpense({ category, amount, note: booking.title }, booking.receiptFile ? [booking.receiptFile] : [])
-      }
-      setBookings((items) => items.map((item, i) => i === index ? { ...item, recorded: { amount, category } } : item))
-      setLedgerMsg(`已记入账本：${category} ¥${amount}`)
-    } catch (e) {
-      const message = (e as Error).message || ''
-      if (message.includes('receipt_paths') || message.includes('expense-receipts') || message.toLowerCase().includes('bucket')) setLedgerMsg('票据已识别，凭证暂时无法保存')
-      else setLedgerMsg('记账失败：' + message)
     }
   }
 
@@ -209,7 +157,7 @@ export default function PlanForm({
     setErr('')
     try {
       if (!answer && ticketText) {
-        onResult(await generatePlan({ destination: '', days, pace, ticketText }))
+        onResult(await generatePlan({ destination: '', days, pace, ticketText }), pendingExpensesFromBookings(bookings))
         return
       }
       const request = intakeDraft ? originalRequest : answer
@@ -236,7 +184,7 @@ export default function PlanForm({
         setDestination('')
         return
       }
-      onResult(await generatePlan({ ...intake.input, ticketText }))
+      onResult(await generatePlan({ ...intake.input, ticketText }), pendingExpensesFromBookings(bookings))
       setIntakeDraft(undefined)
       setOriginalRequest('')
       setQuestions([])
@@ -370,14 +318,13 @@ export default function PlanForm({
                             placeholder="补票价 ¥"
                             aria-label={`${b.title}票价`}
                           />
-                          <button onClick={() => recordBooking(b, bi)} disabled={!f['价格']}>记入账本</button>
+                          <span>生成行程后归入本次账本</span>
                         </div>
                       )
                     }
                     return (
-                      <div className="booking-ledger-status" data-recorded={Boolean(b.recorded)}>
-                        <span>¥{amt}{b.recorded ? ` · 已记入账本「${b.recorded.category}」` : ''}</span>
-                        {!b.recorded && <button onClick={() => recordBooking(b, bi)}>记入账本</button>}
+                      <div className="booking-ledger-status">
+                        <span>¥{amt} · 将归入本次行程账本</span>
                       </div>
                     )
                   })()}
@@ -395,8 +342,7 @@ export default function PlanForm({
                 </div>
               )
             })}
-            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>丸丸会把这些票/酒店排进行程；没读到价格可以补金额后记账；读错了点「改」</div>
-            {ledgerMsg && <div style={{ fontSize: '11.5px', color: 'var(--color-qing)' }}>{ledgerMsg}</div>}
+            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>丸丸会把这些票/酒店排进行程；金额会在行程保存时归入这趟账本；读错了点「改」</div>
           </div>
         )}
         {bookings.length === 0 && ocrText && (
@@ -433,7 +379,6 @@ export default function PlanForm({
               setDestination('')
               setBookings([])
               setOcrText('')
-              setLedgerMsg('')
               setIntakeDraft(undefined)
               setOriginalRequest('')
               setQuestions([])

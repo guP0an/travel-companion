@@ -33,8 +33,14 @@ export interface Booking {
   type: 'train' | 'flight' | 'hotel' | 'other'
   title: string
   fields: Record<string, string>
-  recorded?: { amount: number; category: string } // 已记入账本（前端标记）
-  receiptFile?: File // 本次会话里的原始票据，用于自动记账时保存凭证
+  receiptFile?: File
+}
+
+export interface PendingExpense {
+  category: string
+  amount: number
+  note: string
+  receiptFiles: File[]
 }
 
 async function aiRequest(body: Record<string, unknown>) {
@@ -80,6 +86,18 @@ export function parseBookingPrice(fields: Record<string, string>): number | null
     }
   }
   return null
+}
+
+export function pendingExpensesFromBookings(bookings: Booking[]): PendingExpense[] {
+  return bookings.flatMap((booking) => {
+    const amount = parseBookingPrice(booking.fields)
+    return amount ? [{
+      category: bookingCategory(booking.type),
+      amount,
+      note: booking.title,
+      receiptFiles: booking.receiptFile ? [booking.receiptFile] : [],
+    }] : []
+  })
 }
 
 // 上传截图 OCR 出的文字 → 代理 → DeepSeek 结构化提取出预订信息（可编辑）。

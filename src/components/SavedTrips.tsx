@@ -1,4 +1,3 @@
-import type { Itinerary } from '../types/itinerary'
 import type { SavedItinerary } from '../lib/db'
 
 const PACE_LABEL: Record<string, string> = {
@@ -13,7 +12,7 @@ export default function SavedTrips({
   onBack,
 }: {
   trips: SavedItinerary[]
-  onOpen: (it: Itinerary) => void
+  onOpen: (trip: SavedItinerary) => void
   onBack: () => void
 }) {
   return (
@@ -39,7 +38,7 @@ export default function SavedTrips({
       {trips.map((t) => (
         <button
           key={t.id}
-          onClick={() => onOpen(t.plan)}
+          onClick={() => onOpen(t)}
           className="w-full text-left py-4 transition"
           style={{ borderTop: '1px solid var(--color-line)', background: 'transparent', border: 'none', borderTopStyle: 'solid', cursor: 'pointer' }}
         >
