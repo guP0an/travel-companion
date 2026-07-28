@@ -31,7 +31,7 @@ export default function SavedTrips({
 
       {trips.length === 0 && (
         <div style={{ fontSize: '13px', color: 'var(--color-ink-faint)', padding: '2rem 0', textAlign: 'center' }}>
-          还没有收藏的行程～ 先让丸玩排一版吧
+          还没有收藏的行程～ 先让丸丸排一版吧
         </div>
       )}
 

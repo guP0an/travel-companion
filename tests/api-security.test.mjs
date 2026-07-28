@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   ApiError,
+  SYSTEM_PROMPT,
   attachWeatherAlerts,
   assertItinerary,
   buildUser,
@@ -57,6 +58,11 @@ test('rate limiter resets by time window', () => {
   assert.equal(allow('user-1', 1), true)
   assert.equal(allow('user-1', 2), false)
   assert.equal(allow('user-1', 1000), true)
+})
+
+test('AI persona remains 丸丸 inside the 丸玩 product', () => {
+  assert.match(SYSTEM_PROMPT, /你是「丸丸」/)
+  assert.doesNotMatch(SYSTEM_PROMPT, /你是「丸玩」/)
 })
 
 test('access token is required and verified with Supabase', async () => {

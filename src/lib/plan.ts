@@ -55,7 +55,7 @@ export interface ReceiptScanResult {
 async function aiRequest(body: Record<string, unknown>) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  if (!token) throw new Error('请先登录后再让丸玩规划～')
+  if (!token) throw new Error('请先登录后再让丸丸规划～')
 
   const res = await fetch('/api/ai', {
     method: 'POST',
@@ -63,7 +63,7 @@ async function aiRequest(body: Record<string, unknown>) {
     body: JSON.stringify(body),
   })
   const dataBody = await res.json()
-  if (!res.ok || dataBody?.ok === false) throw new Error(dataBody?.friendlyMessage || '丸玩这会儿有点忙，稍后再试试～')
+  if (!res.ok || dataBody?.ok === false) throw new Error(dataBody?.friendlyMessage || '丸丸这会儿有点忙，稍后再试试～')
   return dataBody
 }
 
@@ -155,13 +155,13 @@ export async function intakePlan(input: IntakeInput): Promise<IntakeResult> {
   return await aiRequest({ op: 'intake', ...input }) as IntakeResult
 }
 
-// 用一句话让丸玩修改已有行程。
+// 用一句话让丸丸修改已有行程。
 export async function revisePlan(plan: Itinerary, instruction: string): Promise<Itinerary> {
   const data = await aiRequest({ op: 'revise', plan, instruction })
   return data as Itinerary
 }
 
-// 调本地代理 → DeepSeek，返回丸玩现排的行程 JSON。
+// 调本地代理 → DeepSeek，返回丸丸现排的行程 JSON。
 export async function generatePlan(input: PlanInput): Promise<Itinerary> {
   const data = await aiRequest({ op: 'plan', ...input })
   return data as Itinerary

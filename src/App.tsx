@@ -171,9 +171,9 @@ export default function App() {
             <div className="planner-intro">
               <div className="section-eyebrow">AI TRAVEL CONCIERGE</div>
               <h1 className="font-serif">
-                把想去的地方<span className="planner-title-break"><br /></span>交给丸玩
+                把想去的地方<span className="planner-title-break"><br /></span>交给丸丸
               </h1>
-              <p>说目的地，也可以只丢给我一张票。丸玩会结合天气、节奏和你的偏好，排成一份能直接出发的行程。</p>
+              <p>说目的地，也可以只丢给我一张票。丸丸会结合天气、节奏和你的偏好，排成一份能直接出发的行程。</p>
             </div>
             <PlanForm
               current={data}
@@ -186,7 +186,7 @@ export default function App() {
               }}
             />
             <div className="planner-status">
-              丸玩 Lv.{g.lv} · {g.name}
+              丸丸 Lv.{g.lv} · {g.name}
               {session && checkins > 0 ? ` · 打卡 ${checkins} 处` : ''}
               {session && g.next != null && (
                 <span>{` · 再打卡 ${g.next - checkins} 处升级`}</span>
@@ -203,8 +203,8 @@ export default function App() {
                   <h2 className="font-serif">{session ? '还没有正在规划的行程' : '你的行程会在这里展开'}</h2>
                   <p>
                     {session
-                      ? '从左边告诉丸玩想去哪、玩几天，也可以上传一张票。'
-                      : '登录后，从左边说说想去哪。丸玩会把零散想法整理成一份能直接出发的行程。'}
+                      ? '从左边告诉丸丸想去哪、玩几天，也可以上传一张票。'
+                      : '登录后，从左边说说想去哪。丸丸会把零散想法整理成一份能直接出发的行程。'}
                   </p>
                   <div className="itinerary-empty-actions">
                     <button onClick={focusPlanner} className="toolbar-button emphasized">
@@ -224,7 +224,7 @@ export default function App() {
                   <div>
                     <div className="section-eyebrow">YOUR ITINERARY</div>
                     <div className="itinerary-title font-serif">{data.meta.destination} · {data.meta.days} 天</div>
-                    <div className="itinerary-meta">已按你的要求生成，可继续让丸玩调整</div>
+                    <div className="itinerary-meta">已按你的要求生成，可继续让丸丸调整</div>
                   </div>
                   <div className="itinerary-actions">
                     {session && (
@@ -265,7 +265,7 @@ export default function App() {
                       <div className="font-serif sheet-title">
                         {data.meta.destination} · {data.meta.days} 天
                       </div>
-                      <div className="sheet-subtitle">丸玩 · 你的旅行管家</div>
+                      <div className="sheet-subtitle">丸丸 · 你的旅行管家</div>
                     </div>
                   </div>
                   <ResultView data={data} editing={editing} onChange={setData} onCheckin={() => countCheckins().then(setCheckins).catch(() => {})} />

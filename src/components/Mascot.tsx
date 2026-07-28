@@ -1,11 +1,11 @@
-// 原创吉祥物「丸玩」—— 一颗可爱的丸子（团子/麻薯），顶上冒青芽，
+// 原创吉祥物「丸丸」—— 一颗可爱的丸子（团子/麻薯），顶上冒青芽，
 // 大眼带高光、朱砂腮红、右眼眼尾一颗泪痣。墨线 + 青 + 朱砂，融进宣纸水墨调性。
 // 不使用任何受版权保护的角色形象。
 
 export function Mascot({ size = 46, hop = false }: { size?: number; hop?: boolean }) {
   return (
     <span className={hop ? 'wm-hop' : undefined} style={{ display: 'inline-block', lineHeight: 0 }}>
-    <svg viewBox="0 0 100 100" width={size} height={size} aria-label="丸玩">
+    <svg viewBox="0 0 100 100" width={size} height={size} aria-label="丸丸">
       {/* 顶上小青芽 */}
       <path d="M50 23 V12" fill="none" stroke="var(--color-qing)" strokeWidth="2.4" strokeLinecap="round" />
       <path d="M50 15 q-8-4-11 2 q6 5 11 0 z" fill="var(--color-qing)" />
@@ -49,7 +49,7 @@ export function Dango({ width = 58 }: { width?: number }) {
   )
 }
 
-export function MascotThinking({ caption = '丸玩正在排…' }: { caption?: string }) {
+export function MascotThinking({ caption = '丸丸正在排…' }: { caption?: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.75rem 0' }}>
       <style>{`
