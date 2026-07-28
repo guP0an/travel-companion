@@ -2,6 +2,8 @@
 // 流程：城市名 → 经纬度(geocoding) → 按日期区间拉每日预报。
 // 预报窗口约未来 16 天；超出窗口的日期拿不到，前端按"超出预报范围"处理。
 
+import { forecastableDates, weatherVisual } from '../../shared/weather'
+
 export interface DayWeather {
   date: string // YYYY-MM-DD
   tMax: number
@@ -13,23 +15,16 @@ export interface DayWeather {
   sunrise: string // 当地 HH:MM，可空 ""
   sunset: string // 当地 HH:MM，可空 ""
   clear: boolean // 天空通透（晴/多云，适合看落日/星空）
+  windMax: number
   lat?: number
   lon?: number
 }
 
 // WMO weather code → emoji + 中文
 function describe(code: number): { icon: string; text: string } {
-  if (code === 0) return { icon: '☀️', text: '晴' }
-  if (code === 1 || code === 2) return { icon: '⛅', text: '多云' }
-  if (code === 3) return { icon: '☁️', text: '阴' }
-  if (code === 45 || code === 48) return { icon: '🌫️', text: '雾' }
-  if (code >= 51 && code <= 57) return { icon: '🌦️', text: '毛毛雨' }
-  if (code >= 61 && code <= 67) return { icon: '🌧️', text: '有雨' }
-  if (code >= 71 && code <= 77) return { icon: '🌨️', text: '有雪' }
-  if (code >= 80 && code <= 82) return { icon: '🌦️', text: '阵雨' }
-  if (code === 85 || code === 86) return { icon: '🌨️', text: '阵雪' }
-  if (code >= 95) return { icon: '⛈️', text: '雷雨' }
-  return { icon: '🌡️', text: '' }
+  const visual = weatherVisual(code)
+  const icon = visual.kind === 'sunny' ? '☀️' : visual.kind === 'cloudy' ? '☁️' : visual.kind === 'rain' ? '🌧️' : visual.kind === 'snow' ? '🌨️' : '🌬️'
+  return { icon, text: visual.label }
 }
 
 async function geocode(city: string): Promise<{ lat: number; lon: number } | null> {
@@ -43,7 +38,9 @@ async function geocode(city: string): Promise<{ lat: number; lon: number } | nul
 
 // 给目的地 + 一组日期，返回 date → DayWeather（拿不到的日期不在 map 里）。
 export async function fetchWeather(city: string, dates: string[]): Promise<Record<string, DayWeather>> {
-  const valid = dates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()
+  const now = new Date()
+  const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-')
+  const valid = forecastableDates(dates, today)
   if (!city || valid.length === 0) return {}
   const geo = await geocode(city)
   if (!geo) return {}
@@ -51,7 +48,7 @@ export async function fetchWeather(city: string, dates: string[]): Promise<Recor
   const end = valid[valid.length - 1]
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}` +
-    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
+    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,wind_speed_10m_max` +
     `&timezone=auto&start_date=${start}&end_date=${end}`
   const r = await fetch(url)
   if (!r.ok) return {}
@@ -64,12 +61,15 @@ export async function fetchWeather(city: string, dates: string[]): Promise<Recor
     const tMax = Math.round(d.daily.temperature_2m_max?.[i])
     const tMin = Math.round(d.daily.temperature_2m_min?.[i])
     if (Number.isNaN(tMax) || Number.isNaN(tMin)) return
-    const { icon, text } = describe(code)
+    const windMax = Math.round(d.daily.wind_speed_10m_max?.[i] ?? 0)
+    const visual = weatherVisual(code, windMax)
+    const { icon } = describe(code)
     out[date] = {
-      date, tMax, tMin, code, pop: d.daily.precipitation_probability_max?.[i] ?? 0, icon, text,
+      date, tMax, tMin, code, pop: d.daily.precipitation_probability_max?.[i] ?? 0, icon, text: visual.label,
       sunrise: hhmm(d.daily.sunrise?.[i] || ''),
       sunset: hhmm(d.daily.sunset?.[i] || ''),
       clear: code <= 2, // 0晴 1,2多云
+      windMax,
       lat: geo.lat, lon: geo.lon,
     }
   })

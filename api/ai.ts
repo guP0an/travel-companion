@@ -228,6 +228,16 @@ export function dateRange(start: string, days: number): string[] {
   })
 }
 
+export function applyItineraryDates(plan: any, input: any) {
+  const dates = dateRange(input.departureDate || '', input.days)
+  if (dates.length !== plan?.days?.length) return plan
+  return {
+    ...plan,
+    meta: { ...plan.meta, departureDate: input.departureDate, days: input.days },
+    days: plan.days.map((day: any, index: number) => ({ ...day, date: dates[index] })),
+  }
+}
+
 export async function geocodeDestination(destination: string, fetcher: FetchLike = fetch): Promise<GeoFact | null> {
   if (!destination.trim()) return null
   try {
@@ -575,7 +585,7 @@ export async function generate(input: any, env: Env, fetcher: FetchLike = fetch)
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: buildUser(input, { weather, alerts, pois: [], routes: [] }) },
   ], { temperature: 1, max_tokens: 8192 }, fetcher)
-  const draft = assertItinerary(JSON.parse(content))
+  const draft = applyItineraryDates(assertItinerary(JSON.parse(content)), input)
   if (!env.AMAP_WEB_SERVICE_KEY) return attachWeatherAlerts(draft, alerts)
   const amap = await collectAmapFacts(draft, input, env, fetcher)
   if (amap.pois.length === 0) return attachWeatherAlerts(draft, alerts)
