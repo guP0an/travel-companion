@@ -57,10 +57,20 @@ const cnDateRange = (start: string, end: string) => {
 }
 
 export function resolveRelativeDepartureDate(text: string, today: string): string {
-  if (!/(这|本)周末/.test(text) || !ISO_DATE.test(today)) return ''
+  return resolveRelativeTripRange(text, today)?.departureDate || ''
+}
+
+export function resolveRelativeTripRange(text: string, today: string): { departureDate: string; days?: number } | null {
+  if (!ISO_DATE.test(today)) return null
+  const compact = text.replace(/\s+/g, '')
   const date = new Date(`${today}T00:00:00Z`)
+  if (/(?:这|本)?周五(?:到|至|-)(?:这|本)?周日/.test(compact)) {
+    const untilFriday = (5 - date.getUTCDay() + 7) % 7
+    return { departureDate: addDays(today, untilFriday), days: 3 }
+  }
+  if (!/(这|本)周末/.test(compact)) return null
   const untilSaturday = (6 - date.getUTCDay() + 7) % 7
-  return addDays(today, untilSaturday)
+  return { departureDate: addDays(today, untilSaturday) }
 }
 
 export function intakeQuestions(draft: IntakeDraft): string[] {

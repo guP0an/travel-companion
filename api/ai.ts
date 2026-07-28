@@ -1,6 +1,7 @@
 import {
   intakeQuestions,
   resolveRelativeDepartureDate,
+  resolveRelativeTripRange,
   type BudgetTier,
   type Companions,
   type IntakeDraft,
@@ -535,7 +536,7 @@ export async function intake(body: any, env: Env, fetcher: FetchLike = fetch): P
   const parsed = JSON.parse(content)
   const previous = body.draft && typeof body.draft === 'object' ? body.draft : {}
   const combinedText = `${body.request} ${body.answer || ''}`
-  const relativeDate = resolveRelativeDepartureDate(combinedText, body.today || '')
+  const relativeTrip = resolveRelativeTripRange(combinedText, body.today || '')
   const pace = enumValue<Pace>(parsed.pace, ['packed', 'balanced', 'leisurely'], previous.pace || body.pace || 'balanced')
   const budgetTier = enumValue<BudgetTier>(parsed.budgetTier, ['budget', 'moderate', 'comfort', 'custom'], previous.budgetTier || body.budgetTier || 'moderate')
   const companions = enumValue<'' | Companions>(parsed.companions, ['', 'solo', 'couple', 'friends', 'family', 'other'], previous.companions || '')
@@ -545,9 +546,9 @@ export async function intake(body: any, env: Env, fetcher: FetchLike = fetch): P
     destination: isString(parsed.destination) ? parsed.destination.trim() : (previous.destination || ''),
     countryOnly: parsed.countryOnly === true,
     international: parsed.international === true,
-    departureDate: relativeDate || (isString(parsed.departureDate) ? parsed.departureDate : previous.departureDate || ''),
-    days: Number.isInteger(parsed.days) && parsed.days >= 1 && parsed.days <= 15 ? parsed.days : body.days,
-    weekendMentioned: parsed.weekendMentioned === true || /(这|本)周末/.test(combinedText),
+    departureDate: relativeTrip?.departureDate || (isString(parsed.departureDate) ? parsed.departureDate : previous.departureDate || ''),
+    days: relativeTrip?.days || (Number.isInteger(parsed.days) && parsed.days >= 1 && parsed.days <= 15 ? parsed.days : body.days),
+    weekendMentioned: relativeTrip?.days ? false : parsed.weekendMentioned === true || /(这|本)周末/.test(combinedText),
     companions,
     pace,
     budgetTier,

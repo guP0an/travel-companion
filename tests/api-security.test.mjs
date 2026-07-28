@@ -171,6 +171,49 @@ test('planning intake returns questions before generating an incomplete trip', a
   ])
 })
 
+test('planning intake accepts Friday through Sunday as a three-day answer', async () => {
+  const result = await intake({
+    request: '这周末去日本',
+    answer: '上海出发，东京，周五到周日，和朋友',
+    days: 3,
+    pace: 'leisurely',
+    today: '2026-07-28',
+    timezone: 'Asia/Shanghai',
+    draft: {
+      request: '这周末去日本',
+      departureCity: '',
+      destination: '日本',
+      countryOnly: true,
+      international: true,
+      departureDate: '2026-08-01',
+      days: 3,
+      weekendMentioned: true,
+      companions: '',
+      pace: 'leisurely',
+      budgetTier: 'moderate',
+      travelerNote: '',
+    },
+  }, { DEEPSEEK_API_KEY: 'test-key' }, async () => new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({
+      destination: '东京',
+      countryOnly: false,
+      international: true,
+      departureCity: '上海',
+      departureDate: '',
+      days: 3,
+      weekendMentioned: true,
+      companions: 'friends',
+      pace: 'leisurely',
+      budgetTier: 'moderate',
+      travelerNote: '',
+    }) } }],
+  }), { status: 200 }))
+
+  assert.equal(result.status, 'ready')
+  assert.equal(result.input.departureDate, '2026-07-31')
+  assert.equal(result.input.days, 3)
+})
+
 test('Kimi vision request uses multimodal JSON mode and removes personal fields', async () => {
   const image = `data:image/jpeg;base64,${Buffer.alloc(64, 1).toString('base64')}`
   assert.equal(validateVisionDataUrl(image), image)
