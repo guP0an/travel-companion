@@ -3,6 +3,7 @@ import type { Itinerary, Item, Period, PrepNote, Highlight, WeatherAlertNotice }
 import SpotDetail from './SpotDetail'
 import { fetchWeather, type DayWeather } from '../lib/weather'
 import { phenomena, type Phenomenon } from '../lib/phenomena'
+import WeatherScene from './WeatherScene'
 
 const PERIOD: Record<Period, string> = { morning: '上午', afternoon: '下午', evening: '晚上' }
 const PREP_ICON: Record<PrepNote['category'], string> = {
@@ -266,22 +267,27 @@ export default function ResultView({
       {data.prep && data.prep.length > 0 && <PrepCard notes={data.prep} />}
       {data.highlights && data.highlights.length > 0 && <HighlightCard list={data.highlights} />}
 
-      {data.days.map((day, d) => (
+      {data.days.map((day, d) => {
+        const dayWeather = day.date ? weather[day.date] : undefined
+        return (
         <section key={d} id={`trip-day-${day.dayIndex}`} className="mb-10 trip-day-section">
-          <div className="flex items-baseline gap-3 pb-2.5 mb-1" style={{ borderBottom: '1px solid var(--color-line)' }}>
-            <span style={{ fontSize: '10.5px', letterSpacing: '0.22em', color: 'var(--color-ink-faint)' }}>DAY</span>
-            <span className="font-serif" style={{ fontSize: '28px', lineHeight: 1, color: 'var(--color-ink)' }}>{CN[day.dayIndex] || day.dayIndex}</span>
-            {day.date && <span style={{ fontSize: '11.5px', color: 'var(--color-ink-faint)' }}>{day.date}</span>}
-            {day.date && weather[day.date] && (
-              <span title={`降水概率 ${weather[day.date].pop}%`} style={{ fontSize: '11.5px', color: 'var(--color-qing)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                {weather[day.date].icon} {weather[day.date].text} {weather[day.date].tMin}~{weather[day.date].tMax}°
-                {weather[day.date].pop >= 40 && <span style={{ color: 'var(--color-seal)' }}>· 易雨</span>}
-              </span>
+          <div className={`day-weather-header${dayWeather ? ' has-weather' : ''}`}>
+            {dayWeather && <WeatherScene weather={dayWeather} />}
+            <div className="day-weather-identity">
+              <span className="day-label">DAY</span>
+              <span className="font-serif day-number">{CN[day.dayIndex] || day.dayIndex}</span>
+              {day.date && <span className="day-date">{day.date}</span>}
+            </div>
+            {dayWeather && (
+              <div className="day-weather-reading" title={`降水概率 ${dayWeather.pop}% · 最大风速 ${dayWeather.windMax}km/h`}>
+                <span className="font-serif">{dayWeather.text}</span>
+                <small>{dayWeather.tMin}° — {dayWeather.tMax}°</small>
+              </div>
             )}
             {editing ? (
-              <input value={day.theme} onChange={(e) => setTheme(d, e.target.value)} className="font-serif ml-auto" style={{ ...edInput, fontSize: '15px', color: 'var(--color-ink-soft)', textAlign: 'right', width: '150px' }} />
+              <input value={day.theme} onChange={(e) => setTheme(d, e.target.value)} className="font-serif day-weather-theme" style={{ ...edInput }} />
             ) : (
-              <span className="font-serif ml-auto" style={{ fontSize: '15px', color: 'var(--color-ink-soft)' }}>{day.theme}</span>
+              <span className="font-serif day-weather-theme">{day.theme}</span>
             )}
           </div>
           {day.segments.map((seg, s) => (
@@ -297,7 +303,7 @@ export default function ResultView({
           ))}
           {day.date && phByDate[day.date] && phByDate[day.date].length > 0 && <DayPhenomena list={phByDate[day.date]} />}
         </section>
-      ))}
+      )})}
 
       <div className="font-serif" style={{ fontSize: '15px', lineHeight: 1.95, color: 'var(--color-ink-soft)' }}>{data.closing}</div>
       <div className="mt-6" style={{ fontSize: '11px', lineHeight: 1.7, color: 'var(--color-ink-faint)' }}>{data.disclaimer}</div>
