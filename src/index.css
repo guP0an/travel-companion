@@ -936,7 +936,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   }
   .planner-title-break { display: none; }
   .planner-intro p { font-size: 12.5px; line-height: 1.7; }
-  .plan-options-row,
   .plan-pace-row { margin-top: 12px; }
   .plan-upload-row { margin-top: 18px; }
   .plan-primary { margin-top: 22px; }

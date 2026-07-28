@@ -19,16 +19,6 @@ const PACE = [
   { v: 'leisurely', label: '溜达' },
 ] as const
 
-const underline: React.CSSProperties = {
-  border: 'none',
-  borderBottom: '1px solid var(--color-line)',
-  background: 'transparent',
-  padding: '6px 2px',
-  outline: 'none',
-  fontSize: '15px',
-  color: 'var(--color-ink)',
-}
-
 export default function PlanForm({
   onResult,
   current,
@@ -41,7 +31,7 @@ export default function PlanForm({
   onReset?: () => void
 }) {
   const [destination, setDestination] = useState('')
-  const [days, setDays] = useState(3)
+  const days = 3
   const [pace, setPace] = useState<PlanInput['pace']>('leisurely')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -190,20 +180,6 @@ export default function PlanForm({
         className="font-serif"
         style={{ fieldSizing: 'content', width: '100%', minHeight: '28px', border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', outline: 'none', resize: 'none', color: 'var(--color-ink)', fontSize: '15px', lineHeight: 1.8, padding: '6px 2px', display: 'block' } as React.CSSProperties}
       />
-
-      <div className="plan-options-row flex items-center gap-2">
-        <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>玩</span>
-        <input
-          type="number"
-          min={1}
-          max={15}
-          value={days}
-          onChange={(e) => setDays(Math.max(1, Math.min(15, Number(e.target.value) || 1)))}
-          className="font-serif"
-          style={{ ...underline, width: '44px', textAlign: 'center' }}
-        />
-        <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>天</span>
-      </div>
 
       <div className="plan-pace-row flex gap-5">
         {PACE.map((p) => (
