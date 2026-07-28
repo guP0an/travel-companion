@@ -203,6 +203,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .plan-primary:hover { background: #171612; transform: translateY(-1px); }
 .plan-primary-mark { display: inline-flex; gap: 3px; }
 .plan-primary-mark span { width: 6px; height: 6px; border-radius: 50%; }
+.plan-stop {
+  display: block;
+  margin: -18px auto 0;
+  padding: 6px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  font-size: 12px;
+}
+.plan-stop:hover { border-color: var(--color-seal); color: var(--color-seal); }
 .planner-status {
   margin-top: 24px;
   padding-top: 16px;

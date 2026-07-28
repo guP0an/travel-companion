@@ -5,6 +5,7 @@ import test from 'node:test'
 const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
 const planForm = readFileSync(new URL('../src/components/PlanForm.tsx', import.meta.url), 'utf8')
+const plan = readFileSync(new URL('../src/lib/plan.ts', import.meta.url), 'utf8')
 const mascot = readFileSync(new URL('../src/components/Mascot.tsx', import.meta.url), 'utf8')
 
 test('mobile planner hides the empty result panel and exposes compact form hooks', () => {
@@ -23,6 +24,14 @@ test('planner collects trip duration from conversation instead of a separate fie
   assert.doesNotMatch(planForm, /className="plan-options-row/)
   assert.doesNotMatch(planForm, /type="number"/)
   assert.doesNotMatch(css, /\.plan-options-row/)
+})
+
+test('planner can abort an in-flight itinerary request', () => {
+  assert.match(planForm, /new AbortController\(\)/)
+  assert.match(planForm, /停止生成/)
+  assert.match(planForm, /\.abort\(\)/)
+  assert.match(plan, /signal\?: AbortSignal/)
+  assert.match(plan, /signal,\n/)
 })
 
 test('丸玩 product brand stays distinct from the 丸丸 travel companion', () => {

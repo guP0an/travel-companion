@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Itinerary } from '../types/itinerary'
 import { compressForVision, generatePlan, revisePlan, intakePlan, extractBookings, extractBookingsFromImage, parseBookingPrice, pendingExpensesFromBookings, type PlanInput, type Booking, type PendingExpense } from '../lib/plan'
 import type { IntakeDraft } from '../../shared/planning'
@@ -42,6 +42,30 @@ export default function PlanForm({
   const [originalRequest, setOriginalRequest] = useState('')
   const [questions, setQuestions] = useState<string[]>([])
   const [openSet, setOpenSet] = useState<Set<number>>(new Set())
+  const activeRequest = useRef<AbortController | null>(null)
+  useEffect(() => () => activeRequest.current?.abort(), [])
+
+  const startRequest = () => {
+    activeRequest.current?.abort()
+    const controller = new AbortController()
+    activeRequest.current = controller
+    setBusy(true)
+    setErr('')
+    return controller
+  }
+
+  const finishRequest = (controller: AbortController) => {
+    if (activeRequest.current !== controller) return
+    activeRequest.current = null
+    setBusy(false)
+  }
+
+  const stopRequest = () => {
+    activeRequest.current?.abort()
+    activeRequest.current = null
+    setBusy(false)
+  }
+
   const toggleOpen = (bi: number) =>
     setOpenSet((s) => {
       const n = new Set(s)
@@ -100,15 +124,14 @@ export default function PlanForm({
       : ocrText || undefined
     // 已有行程 → 这句话当修改指令；否则当新排
     if (hasPlan && current && destination.trim()) {
-      setBusy(true)
-      setErr('')
+      const controller = startRequest()
       try {
-        onResult(await revisePlan(current, destination.trim()))
+        onResult(await revisePlan(current, destination.trim(), controller.signal))
         setDestination('')
       } catch (e) {
-        setErr((e as Error).message)
+        if ((e as Error).name !== 'AbortError') setErr((e as Error).message)
       } finally {
-        setBusy(false)
+        finishRequest(controller)
       }
       return
     }
@@ -117,11 +140,10 @@ export default function PlanForm({
       setErr('告诉丸丸去哪儿，或传一张票/酒店截图')
       return
     }
-    setBusy(true)
-    setErr('')
+    const controller = startRequest()
     try {
       if (!answer && ticketText) {
-        onResult(await generatePlan({ destination: '', days, pace, ticketText }), pendingExpensesFromBookings(bookings))
+        onResult(await generatePlan({ destination: '', days, pace, ticketText }, controller.signal), pendingExpensesFromBookings(bookings))
         return
       }
       const request = intakeDraft ? originalRequest : answer
@@ -140,7 +162,7 @@ export default function PlanForm({
         draft: intakeDraft,
         answer: intakeDraft ? answer : undefined,
         ticketText,
-      })
+      }, controller.signal)
       if (intake.status === 'needs_input') {
         setOriginalRequest(request)
         setIntakeDraft(intake.draft)
@@ -148,14 +170,14 @@ export default function PlanForm({
         setDestination('')
         return
       }
-      onResult(await generatePlan({ ...intake.input, ticketText }), pendingExpensesFromBookings(bookings))
+      onResult(await generatePlan({ ...intake.input, ticketText }, controller.signal), pendingExpensesFromBookings(bookings))
       setIntakeDraft(undefined)
       setOriginalRequest('')
       setQuestions([])
     } catch (e) {
-      setErr((e as Error).message)
+      if ((e as Error).name !== 'AbortError') setErr((e as Error).message)
     } finally {
-      setBusy(false)
+      finishRequest(controller)
     }
   }
 
@@ -306,7 +328,10 @@ export default function PlanForm({
       </div>
 
       {busy ? (
-        <MascotThinking />
+        <div className="plan-busy">
+          <MascotThinking />
+          <button type="button" onClick={stopRequest} className="plan-stop font-serif">停止生成</button>
+        </div>
       ) : (
         <button
           onClick={go}

@@ -52,7 +52,7 @@ export interface ReceiptScanResult {
   confidence: 'high' | 'medium' | 'low'
 }
 
-async function aiRequest(body: Record<string, unknown>) {
+async function aiRequest(body: Record<string, unknown>, signal?: AbortSignal) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) throw new Error('请先登录后再让丸丸规划～')
@@ -61,6 +61,7 @@ async function aiRequest(body: Record<string, unknown>) {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
+    signal,
   })
   const dataBody = await res.json()
   if (!res.ok || dataBody?.ok === false) throw new Error(dataBody?.friendlyMessage || '丸丸这会儿有点忙，稍后再试试～')
@@ -151,18 +152,18 @@ export async function scanReceipt(image: string): Promise<ReceiptScanResult> {
   return data.receipt as ReceiptScanResult
 }
 
-export async function intakePlan(input: IntakeInput): Promise<IntakeResult> {
-  return await aiRequest({ op: 'intake', ...input }) as IntakeResult
+export async function intakePlan(input: IntakeInput, signal?: AbortSignal): Promise<IntakeResult> {
+  return await aiRequest({ op: 'intake', ...input }, signal) as IntakeResult
 }
 
 // 用一句话让丸丸修改已有行程。
-export async function revisePlan(plan: Itinerary, instruction: string): Promise<Itinerary> {
-  const data = await aiRequest({ op: 'revise', plan, instruction })
+export async function revisePlan(plan: Itinerary, instruction: string, signal?: AbortSignal): Promise<Itinerary> {
+  const data = await aiRequest({ op: 'revise', plan, instruction }, signal)
   return data as Itinerary
 }
 
 // 调本地代理 → DeepSeek，返回丸丸现排的行程 JSON。
-export async function generatePlan(input: PlanInput): Promise<Itinerary> {
-  const data = await aiRequest({ op: 'plan', ...input })
+export async function generatePlan(input: PlanInput, signal?: AbortSignal): Promise<Itinerary> {
+  const data = await aiRequest({ op: 'plan', ...input }, signal)
   return data as Itinerary
 }
