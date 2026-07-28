@@ -1,8 +1,10 @@
 import type { Itinerary } from '../types/itinerary'
+import type { IntakeDraft, IntakeResult, Pace } from '../../shared/planning'
 import { supabase } from './supabase'
 
 export interface PlanInput {
   destination: string
+  departureCity?: string
   days: number
   pace?: 'packed' | 'balanced' | 'leisurely'
   companions?: 'solo' | 'couple' | 'friends' | 'family' | 'other'
@@ -14,6 +16,17 @@ export interface PlanInput {
   travelerNote?: string
   departureDate?: string
   ticketText?: string // 上传票务截图 OCR 出的文字
+}
+
+export interface IntakeInput {
+  request: string
+  days: number
+  pace: Pace
+  today: string
+  timezone: string
+  draft?: IntakeDraft
+  answer?: string
+  ticketText?: string
 }
 
 export interface Booking {
@@ -78,6 +91,10 @@ export async function extractBookings(text: string): Promise<Booking[]> {
 export async function extractBookingsFromImage(image: string): Promise<Booking[]> {
   const data = await aiRequest({ op: 'vision', image })
   return (data.bookings || []) as Booking[]
+}
+
+export async function intakePlan(input: IntakeInput): Promise<IntakeResult> {
+  return await aiRequest({ op: 'intake', ...input }) as IntakeResult
 }
 
 // 用一句话让丸丸修改已有行程。

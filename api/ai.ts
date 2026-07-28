@@ -1,4 +1,16 @@
-// 丸丸的 AI 接口——单一自包含 serverless 函数（零跨文件 import，绕开 Vercel ESM 解析坑）。
+import {
+  intakeQuestions,
+  resolveRelativeDepartureDate,
+  type BudgetTier,
+  type Companions,
+  type IntakeDraft,
+  type IntakeResult,
+  type Pace,
+} from '../shared/planning.js'
+
+export { intakeQuestions, resolveRelativeDepartureDate }
+
+// 丸丸的 AI 接口——serverless 函数。
 // 本地 dev 由 vite 中间件直接调用下面的具名导出；线上由 default handler 按 body.op 分发。
 // key 永远只在服务端（env），绝不进前端 bundle。
 
@@ -445,7 +457,14 @@ export function assertItinerary(value: any) {
 
 export function validateApiBody(body: any) {
   if (!body || typeof body !== 'object') throw new ApiError(400, 'invalid body')
-  if (!['plan', 'extract', 'vision', 'revise'].includes(body.op)) throw new ApiError(400, 'unknown op')
+  if (!['intake', 'plan', 'extract', 'vision', 'revise'].includes(body.op)) throw new ApiError(400, 'unknown op')
+  if (body.op === 'intake') {
+    if (!isString(body.request) || !body.request.trim() || body.request.length > 2_000) throw new ApiError(400, 'invalid intake request')
+    if (!Number.isInteger(body.days) || body.days < 1 || body.days > 15) throw new ApiError(400, 'days must be 1-15')
+    if (body.today && (!isString(body.today) || !/^\d{4}-\d{2}-\d{2}$/.test(body.today))) throw new ApiError(400, 'invalid today')
+    if (body.answer && (!isString(body.answer) || body.answer.length > 2_000)) throw new ApiError(400, 'invalid intake answer')
+    if (body.draft && (typeof body.draft !== 'object' || JSON.stringify(body.draft).length > 10_000)) throw new ApiError(400, 'invalid intake draft')
+  }
   if (body.op === 'plan') {
     if (!Number.isInteger(body.days) || body.days < 1 || body.days > 15) throw new ApiError(400, 'days must be 1-15')
     const destination = isString(body.destination) ? body.destination.trim() : ''
@@ -472,6 +491,78 @@ async function chat(env: Env, messages: any[], opts: { temperature: number; max_
   const content = data.choices?.[0]?.message?.content
   if (!content) throw new Error('DeepSeek 返回空内容')
   return content as string
+}
+
+const INTAKE_PROMPT = `你是旅行规划前置助手。根据用户原始诉求、页面默认值、上一轮已识别内容和本轮回答，提取最新信息。
+只输出 JSON，不要解释：
+{"departureCity":"","destination":"","countryOnly":false,"international":false,"departureDate":"","days":3,"weekendMentioned":false,"companions":"","pace":"balanced","budgetTier":"moderate","travelerNote":""}
+规则：
+- destination 写城市或国家；如果用户只说国家，countryOnly=true。
+- international 表示相对中国大陆是否出境。
+- departureDate 只写用户明确给出的 YYYY-MM-DD；“这周末”等相对日期留空，由系统计算。
+- companions 只能是 solo/couple/friends/family/other 或空串。
+- pace 只能是 packed/balanced/leisurely；budgetTier 只能是 budget/moderate/comfort/custom。
+- 本轮短回答用于补齐或修正上一轮，不能丢掉已经明确的信息；不要猜出发城市、目的城市、同行人。`
+
+const enumValue = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
+  allowed.includes(value as T) ? value as T : fallback
+
+export async function intake(body: any, env: Env, fetcher: FetchLike = fetch): Promise<IntakeResult> {
+  const content = await chat(env, [
+    { role: 'system', content: INTAKE_PROMPT },
+    {
+      role: 'user',
+      content: JSON.stringify({
+        request: body.request,
+        today: body.today || '',
+        timezone: body.timezone || 'Asia/Shanghai',
+        pageDefaults: { days: body.days, pace: body.pace || 'balanced' },
+        previous: body.draft || null,
+        answer: body.answer || '',
+      }),
+    },
+  ], { temperature: 0.1, max_tokens: 1024 }, fetcher)
+  const parsed = JSON.parse(content)
+  const previous = body.draft && typeof body.draft === 'object' ? body.draft : {}
+  const combinedText = `${body.request} ${body.answer || ''}`
+  const relativeDate = resolveRelativeDepartureDate(combinedText, body.today || '')
+  const pace = enumValue<Pace>(parsed.pace, ['packed', 'balanced', 'leisurely'], previous.pace || body.pace || 'balanced')
+  const budgetTier = enumValue<BudgetTier>(parsed.budgetTier, ['budget', 'moderate', 'comfort', 'custom'], previous.budgetTier || body.budgetTier || 'moderate')
+  const companions = enumValue<'' | Companions>(parsed.companions, ['', 'solo', 'couple', 'friends', 'family', 'other'], previous.companions || '')
+  const draft: IntakeDraft = {
+    request: body.request.trim(),
+    departureCity: isString(parsed.departureCity) ? parsed.departureCity.trim() : (previous.departureCity || ''),
+    destination: isString(parsed.destination) ? parsed.destination.trim() : (previous.destination || ''),
+    countryOnly: parsed.countryOnly === true,
+    international: parsed.international === true,
+    departureDate: relativeDate || (isString(parsed.departureDate) ? parsed.departureDate : previous.departureDate || ''),
+    days: Number.isInteger(parsed.days) && parsed.days >= 1 && parsed.days <= 15 ? parsed.days : body.days,
+    weekendMentioned: parsed.weekendMentioned === true || /(这|本)周末/.test(combinedText),
+    companions,
+    pace,
+    budgetTier,
+    travelerNote: isString(parsed.travelerNote) ? parsed.travelerNote.trim() : (previous.travelerNote || ''),
+  }
+  const questions = intakeQuestions(draft)
+  if (questions.length) return { status: 'needs_input', questions, draft }
+  return {
+    status: 'ready',
+    input: {
+      destination: draft.destination,
+      departureCity: draft.departureCity,
+      departureDate: draft.departureDate,
+      days: draft.days,
+      pace: draft.pace,
+      companions: draft.companions || 'solo',
+      budgetTier: draft.budgetTier,
+      budgetNote: body.budgetNote,
+      mustVisit: body.mustVisit,
+      avoid: body.avoid,
+      travelerTags: body.travelerTags,
+      travelerNote: draft.travelerNote,
+      ticketText: body.ticketText,
+    },
+  }
 }
 
 export async function generate(input: any, env: Env, fetcher: FetchLike = fetch) {
@@ -620,6 +711,7 @@ export async function handleApiRequest(req: any, res: any, env: Env, fetcher: Fe
     const body = await readBody(req)
     op = body.op
     validateApiBody(body)
+    if (op === 'intake') return res.end(JSON.stringify(await intake(body, env, fetcher)))
     if (op === 'plan') return res.end(JSON.stringify(await generate(body, env, fetcher)))
     if (op === 'extract') return res.end(JSON.stringify({ bookings: await extractBookings(body.text, env, fetcher) }))
     if (op === 'vision') return res.end(JSON.stringify({ bookings: await extractBookingsFromImage(body.image, env, fetcher), provider: 'kimi-k2.6' }))

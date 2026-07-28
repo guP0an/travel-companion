@@ -12,7 +12,10 @@ import {
   dateRange,
   extractBookingsFromImage,
   fetchWalkingRoute,
+  intake,
+  intakeQuestions,
   redactSensitiveText,
+  resolveRelativeDepartureDate,
   searchAmapPoi,
   validateApiBody,
   validateVisionDataUrl,
@@ -86,6 +89,67 @@ test('API body validation rejects oversized and invalid requests', () => {
   assert.throws(() => validateApiBody({ op: 'revise', plan: itinerary, instruction: '' }), ApiError)
   assert.doesNotThrow(() => validateApiBody({ op: 'plan', destination: '京都', days: 3 }))
   assert.doesNotThrow(() => validateApiBody({ op: 'plan', destination: '', days: 3, ticketText: 'G304 香港西九龙到武汉' }))
+  assert.doesNotThrow(() => validateApiBody({
+    op: 'intake',
+    request: '这周末去日本',
+    days: 3,
+    pace: 'leisurely',
+    today: '2026-07-28',
+    timezone: 'Asia/Shanghai',
+  }))
+  assert.throws(() => validateApiBody({ op: 'intake', request: '', days: 3 }), ApiError)
+})
+
+test('planning intake resolves this weekend and asks only blocking questions', () => {
+  assert.equal(resolveRelativeDepartureDate('这周末去东京', '2026-07-28'), '2026-08-01')
+  assert.deepEqual(intakeQuestions({
+    request: '这周末去日本',
+    destination: '日本',
+    countryOnly: true,
+    international: true,
+    departureDate: '2026-08-01',
+    days: 3,
+    weekendMentioned: true,
+    companions: '',
+    departureCity: '',
+    pace: 'leisurely',
+    budgetTier: 'moderate',
+    travelerNote: '',
+  }), [
+    '你从哪座城市出发？',
+    '日本准备去哪座城市或地区？',
+    '这周末是8月1日至2日；你想玩2天，还是按当前设置玩3天？',
+    '这次和谁一起去？',
+  ])
+})
+
+test('planning intake returns questions before generating an incomplete trip', async () => {
+  const result = await intake({
+    request: '这周末去日本',
+    days: 3,
+    pace: 'leisurely',
+    today: '2026-07-28',
+    timezone: 'Asia/Shanghai',
+  }, { DEEPSEEK_API_KEY: 'test-key' }, async () => new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({
+      destination: '日本',
+      countryOnly: true,
+      international: true,
+      departureCity: '',
+      departureDate: '',
+      weekendMentioned: true,
+      companions: '',
+      travelerNote: '',
+    }) } }],
+  }), { status: 200 }))
+
+  assert.equal(result.status, 'needs_input')
+  assert.deepEqual(result.questions, [
+    '你从哪座城市出发？',
+    '日本准备去哪座城市或地区？',
+    '这周末是8月1日至2日；你想玩2天，还是按当前设置玩3天？',
+    '这次和谁一起去？',
+  ])
 })
 
 test('Kimi vision request uses multimodal JSON mode and removes personal fields', async () => {
