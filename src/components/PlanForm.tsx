@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Itinerary } from '../types/itinerary'
-import { generatePlan, revisePlan, extractBookings, extractBookingsFromImage, bookingCategory, parseBookingPrice, type PlanInput, type Booking } from '../lib/plan'
+import { generatePlan, revisePlan, intakePlan, extractBookings, extractBookingsFromImage, bookingCategory, parseBookingPrice, type PlanInput, type Booking } from '../lib/plan'
+import type { IntakeDraft } from '../../shared/planning'
 import { addExpense, expenseExists } from '../lib/db'
 import { MascotThinking } from './Mascot'
 
@@ -48,6 +49,9 @@ export default function PlanForm({
   const [ocrText, setOcrText] = useState('')
   const [ocrBusy, setOcrBusy] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [intakeDraft, setIntakeDraft] = useState<IntakeDraft>()
+  const [originalRequest, setOriginalRequest] = useState('')
+  const [questions, setQuestions] = useState<string[]>([])
   const [ledgerMsg, setLedgerMsg] = useState('')
   const [openSet, setOpenSet] = useState<Set<number>>(new Set())
   const toggleOpen = (bi: number) =>
@@ -196,14 +200,46 @@ export default function PlanForm({
       }
       return
     }
-    if (!destination.trim() && !ticketText) {
+    const answer = destination.trim()
+    if (!answer && !ticketText) {
       setErr('告诉丸丸去哪儿，或传一张票/酒店截图')
       return
     }
     setBusy(true)
     setErr('')
     try {
-      onResult(await generatePlan({ destination: destination.trim(), days, pace, ticketText }))
+      if (!answer && ticketText) {
+        onResult(await generatePlan({ destination: '', days, pace, ticketText }))
+        return
+      }
+      const request = intakeDraft ? originalRequest : answer
+      const now = new Date()
+      const today = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0'),
+      ].join('-')
+      const intake = await intakePlan({
+        request,
+        days,
+        pace: pace || 'leisurely',
+        today,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
+        draft: intakeDraft,
+        answer: intakeDraft ? answer : undefined,
+        ticketText,
+      })
+      if (intake.status === 'needs_input') {
+        setOriginalRequest(request)
+        setIntakeDraft(intake.draft)
+        setQuestions(intake.questions)
+        setDestination('')
+        return
+      }
+      onResult(await generatePlan({ ...intake.input, ticketText }))
+      setIntakeDraft(undefined)
+      setOriginalRequest('')
+      setQuestions([])
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -213,12 +249,21 @@ export default function PlanForm({
 
   return (
     <div className="plan-form">
+      {questions.length > 0 && (
+        <section className="planner-questions" aria-live="polite">
+          <div className="planner-questions-label">丸玩还需要确认</div>
+          <ol>
+            {questions.map((question) => <li key={question}>{question}</li>)}
+          </ol>
+          <p>可以一次把答案都告诉我，例如：上海出发、东京、2天、和伴侣。</p>
+        </section>
+      )}
       {/* 干净的多行输入（内容自动撑开） */}
       <textarea
         id="planner-input"
         value={destination}
         onChange={(e) => setDestination(e.target.value)}
-        placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : '告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…'}
+        placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : questions.length ? '把上面几个问题一次告诉丸玩…' : '告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…'}
         rows={1}
         className="font-serif"
         style={{ fieldSizing: 'content', width: '100%', minHeight: '28px', border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', outline: 'none', resize: 'none', color: 'var(--color-ink)', fontSize: '15px', lineHeight: 1.8, padding: '6px 2px', display: 'block' } as React.CSSProperties}
@@ -375,7 +420,7 @@ export default function PlanForm({
           <span className="plan-primary-mark" aria-hidden>
             {DANGO.map((color) => <span key={color} style={{ background: color }} />)}
           </span>
-          <span>{hasPlan ? '请丸丸调整行程' : '让丸丸排一版'}</span>
+          <span>{hasPlan ? '请丸丸调整行程' : questions.length ? '回答丸玩' : '让丸丸排一版'}</span>
           <span aria-hidden>→</span>
         </button>
       )}
@@ -389,6 +434,9 @@ export default function PlanForm({
               setBookings([])
               setOcrText('')
               setLedgerMsg('')
+              setIntakeDraft(undefined)
+              setOriginalRequest('')
+              setQuestions([])
             }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-ink-faint)', fontSize: '12px' }}
           >

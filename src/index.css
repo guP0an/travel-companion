@@ -159,6 +159,30 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   line-height: 1.9;
 }
 .plan-form { margin: 0; }
+.planner-questions {
+  margin-bottom: 18px;
+  padding: 14px 15px;
+  border-left: 2px solid var(--color-qing);
+  background: var(--color-qing-soft);
+}
+.planner-questions-label {
+  color: var(--color-qing);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.planner-questions ol {
+  margin: 9px 0 0;
+  padding-left: 19px;
+  color: var(--color-ink);
+  font-size: 13px;
+  line-height: 1.75;
+}
+.planner-questions p {
+  margin: 8px 0 0;
+  color: var(--color-ink-faint);
+  font-size: 11px;
+  line-height: 1.6;
+}
 .plan-primary {
   display: flex;
   align-items: center;
