@@ -168,35 +168,12 @@ git commit -m "feat: add planning intake and clarification rules"
 **Files:**
 - Modify: `src/components/PlanForm.tsx`
 - Modify: `src/index.css`
-- Test: `tests/mobile-layout.test.mjs`
 
 **Interfaces:**
 - Consumes: `intakePlan`, `IntakeDraft`, `IntakeResult`, `generatePlan`.
 - Produces: `PlanForm` 内部的 `intake` 状态与追问卡片；`PendingExpense`；`onResult(itinerary, pendingExpenses?)`.
 
-- [ ] **Step 1: 写追问 UI 的失败检查**
-
-在 `tests/mobile-layout.test.mjs` 加入：
-
-```js
-const planForm = readFileSync(new URL('../src/components/PlanForm.tsx', import.meta.url), 'utf8')
-
-test('planner keeps a clarification state before generating an itinerary', () => {
-  assert.match(planForm, /intakePlan/)
-  assert.match(planForm, /intake-questions/)
-  assert.match(planForm, /questions\\.map/)
-  assert.match(planForm, /resolvedOptions\\(\\)\\.timeZone/)
-  assert.match(css, /\\.intake-questions/)
-})
-```
-
-- [ ] **Step 2: 运行并确认失败**
-
-Run: `pnpm test`
-
-Expected: FAIL，缺少 `intakePlan` 或 `.intake-questions`。
-
-- [ ] **Step 3: 实现最小多轮流程**
+- [ ] **Step 1: 实现最小多轮流程**
 
 在 `PlanForm.tsx`：
 
@@ -232,16 +209,16 @@ export interface PendingExpense {
 }
 ```
 
-- [ ] **Step 4: 运行测试**
+- [ ] **Step 2: 运行已有 intake 行为测试与构建**
 
-Run: `pnpm test`
+Run: `pnpm test && pnpm build`
 
-Expected: PASS。
+Expected: PASS；Task 1 的真实 intake 合约覆盖分支逻辑，UI 交互留到浏览器验收。
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 3: 提交**
 
 ```bash
-git add src/components/PlanForm.tsx src/index.css tests/mobile-layout.test.mjs
+git add src/components/PlanForm.tsx src/index.css
 git commit -m "feat: ask for missing trip details before planning"
 ```
 
@@ -340,39 +317,12 @@ git commit -m "feat: guarantee trip dates and classify weather scenes"
 - Create: `src/components/WeatherScene.tsx`
 - Modify: `src/components/ResultView.tsx`
 - Modify: `src/index.css`
-- Modify: `tests/weather.test.mjs`
 
 **Interfaces:**
 - Consumes: `DayWeather`, `weatherVisual`.
 - Produces: `<WeatherScene weather={weather} />`.
 
-- [ ] **Step 1: 写组件接线失败检查**
-
-在 `tests/weather.test.mjs` 读取源码并加入：
-
-```js
-import { readFileSync } from 'node:fs'
-
-const resultView = readFileSync(new URL('../src/components/ResultView.tsx', import.meta.url), 'utf8')
-const scene = readFileSync(new URL('../src/components/WeatherScene.tsx', import.meta.url), 'utf8')
-const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
-
-test('daily header renders a full-row reduced-motion weather scene', () => {
-  assert.match(resultView, /<WeatherScene weather=/)
-  assert.match(scene, /weather-scene/)
-  assert.match(scene, /weather-rain/)
-  assert.match(scene, /weather-snow/)
-  assert.match(css, /@media \\(prefers-reduced-motion: reduce\\)/)
-})
-```
-
-- [ ] **Step 2: 运行并确认失败**
-
-Run: `pnpm test`
-
-Expected: FAIL，`WeatherScene.tsx` 不存在。
-
-- [ ] **Step 3: 实现幕布**
+- [ ] **Step 1: 实现幕布**
 
 `WeatherScene.tsx` 只生成确定性粒子：
 
@@ -396,16 +346,16 @@ export default function WeatherScene({ weather }: { weather: DayWeather }) {
 
 在 `ResultView` 的每日标题行仅当 `weather[day.date]` 存在时渲染幕布和温度。CSS 使用绝对定位铺满整行；雨是细斜线且起点/时长错开，雪是浅色细小圆点，云层和日光用伪元素，大风加弧形横线。文字层 `z-index: 1`，背景不降低可读性。
 
-- [ ] **Step 4: 运行测试与构建**
+- [ ] **Step 2: 运行天气纯函数测试与构建**
 
 Run: `pnpm test && pnpm build`
 
 Expected: 全部通过。
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 3: 提交**
 
 ```bash
-git add src/components/WeatherScene.tsx src/components/ResultView.tsx src/index.css tests/weather.test.mjs
+git add src/components/WeatherScene.tsx src/components/ResultView.tsx src/index.css
 git commit -m "feat: render animated daily weather scenes"
 ```
 
@@ -514,38 +464,12 @@ git commit -m "feat: scope expenses to saved itineraries"
 - Modify: `src/components/Ledger.tsx`
 - Modify: `src/components/PlanForm.tsx`
 - Modify: `src/index.css`
-- Modify: `tests/ledger.test.mjs`
-- Modify: `tests/mobile-layout.test.mjs`
 
 **Interfaces:**
 - Consumes: `SavedItinerary.id`, `groupLedgerDirectory`, trip-scoped expense functions.
 - Produces: `activeTripId`, 当前行程账本、账本目录和旧账归档入口。
 
-- [ ] **Step 1: 写页面接线失败检查**
-
-在 `tests/ledger.test.mjs` 加入源码断言：
-
-```js
-const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
-const ledger = readFileSync(new URL('../src/components/Ledger.tsx', import.meta.url), 'utf8')
-const saved = readFileSync(new URL('../src/components/SavedTrips.tsx', import.meta.url), 'utf8')
-
-test('app keeps the saved trip id and ledger exposes a directory', () => {
-  assert.match(app, /activeTripId/)
-  assert.match(saved, /onOpen\\(t\\)/)
-  assert.match(ledger, /账本目录/)
-  assert.match(ledger, /历史未归档/)
-  assert.match(ledger, /assignExpenseToItinerary/)
-})
-```
-
-- [ ] **Step 2: 运行并确认失败**
-
-Run: `pnpm test`
-
-Expected: FAIL。
-
-- [ ] **Step 3: 实现行程与账本状态**
+- [ ] **Step 1: 实现行程与账本状态**
 
 在 `App.tsx`：
 
@@ -566,16 +490,16 @@ Expected: FAIL。
 - 旧账每行使用原生 `<select>` 选择用户自己的已保存行程，再调用 `assignExpenseToItinerary`；
 - 返回当前行程后重新加载，香港旧账不会出现在日本账本。
 
-- [ ] **Step 4: 运行测试与构建**
+- [ ] **Step 2: 运行账本纯函数测试与构建**
 
 Run: `pnpm test && pnpm build`
 
 Expected: 全部通过。
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 3: 提交**
 
 ```bash
-git add src/App.tsx src/components/SavedTrips.tsx src/components/Ledger.tsx src/components/PlanForm.tsx src/index.css tests/ledger.test.mjs tests/mobile-layout.test.mjs
+git add src/App.tsx src/components/SavedTrips.tsx src/components/Ledger.tsx src/components/PlanForm.tsx src/index.css
 git commit -m "feat: add per-trip ledger directory"
 ```
 
@@ -591,40 +515,22 @@ git commit -m "feat: add per-trip ledger directory"
 - Modify: `docs/*.md`
 - Modify: `DEPLOY.md`
 - Modify: `travel-companion-notion.md`
-- Test: `tests/brand.test.mjs`
 
 **Interfaces:**
 - Produces: 所有用户可见品牌文案为“丸玩”。
 - Preserves: 所有 `wanwan` 技术标识。
 
-- [ ] **Step 1: 写品牌失败检查**
+- [ ] **Step 1: 运行品牌扫描并确认旧名称仍存在**
 
-创建 `tests/brand.test.mjs`：
+Run:
 
-```js
-import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
-import test from 'node:test'
-
-test('runtime and current product docs use the 丸玩 brand', () => {
-  const output = execFileSync('git', [
-    'grep', '-n', '丸丸', '--',
-    'index.html', 'src', 'api', 'miniprogram', 'public', 'supabase',
-    'DEPLOY.md', 'travel-companion-notion.md', 'docs/*.md',
-  ], { encoding: 'utf8' })
-  assert.equal(output, '')
-})
+```bash
+git grep -n '丸丸' -- index.html src api miniprogram public supabase DEPLOY.md travel-companion-notion.md 'docs/*.md'
 ```
 
-测试实现时需捕获 `git grep` 的退出码 1 并把它当作“无匹配”；其他退出码继续抛错。
+Expected: 命令成功并列出旧品牌位置。
 
-- [ ] **Step 2: 运行并确认失败**
-
-Run: `pnpm test`
-
-Expected: FAIL，列出旧品牌位置。
-
-- [ ] **Step 3: 执行机械替换并保护内部标识**
+- [ ] **Step 2: 执行机械替换并保护内部标识**
 
 对测试覆盖的文件把中文 `丸丸` 机械替换为 `丸玩`。不要替换小写 `wanwan`、域名、Cookie、邮箱后缀、包名或仓库名。设计与实施计划保留历史上下文，不参与机械替换测试。
 
@@ -637,7 +543,7 @@ git grep -n 'wanwantrip.online\\|wanwan_wechat\\|wechat.wanwan.invalid'
 
 第一条应无输出；第二条必须仍有输出。
 
-- [ ] **Step 4: 完整验证**
+- [ ] **Step 3: 完整验证**
 
 Run:
 
@@ -649,7 +555,7 @@ git diff --check
 
 Expected: 测试和构建全部通过，无空白错误。
 
-- [ ] **Step 5: 浏览器验收**
+- [ ] **Step 4: 浏览器验收**
 
 本地运行 `pnpm dev`，在 375、390、430px 和桌面宽度依次检查：
 
@@ -660,14 +566,14 @@ Expected: 测试和构建全部通过，无空白错误。
 - 日本行程账本为空或只含日本账，香港旧账只在“历史未归档”；
 - 所有用户可见品牌为“丸玩”。
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 5: 提交**
 
 ```bash
-git add index.html src api miniprogram public supabase docs DEPLOY.md travel-companion-notion.md tests/brand.test.mjs
+git add index.html src api miniprogram public supabase docs DEPLOY.md travel-companion-notion.md
 git commit -m "feat: rename product to 丸玩"
 ```
 
-- [ ] **Step 7: 推送并验证部署**
+- [ ] **Step 6: 推送并验证部署**
 
 ```bash
 git push -u origin codex/smart-weather-brand
