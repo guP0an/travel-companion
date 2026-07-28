@@ -43,6 +43,15 @@ export interface PendingExpense {
   receiptFiles: File[]
 }
 
+export interface ReceiptScanResult {
+  amount: number | null
+  spentAt: string
+  category: '餐饮' | '交通' | '门票' | '住宿' | '购物' | '其他'
+  merchant: string
+  note: string
+  confidence: 'high' | 'medium' | 'low'
+}
+
 async function aiRequest(body: Record<string, unknown>) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
@@ -56,6 +65,32 @@ async function aiRequest(body: Record<string, unknown>) {
   const dataBody = await res.json()
   if (!res.ok || dataBody?.ok === false) throw new Error(dataBody?.friendlyMessage || '丸玩这会儿有点忙，稍后再试试～')
   return dataBody
+}
+
+export async function compressForVision(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('请选择图片文件')
+  if (file.size > 15 * 1024 * 1024) throw new Error('图片太大，请控制在 15MB 以内')
+  const url = URL.createObjectURL(file)
+  try {
+    const image = new Image()
+    image.src = url
+    await image.decode()
+    const maxSide = 1800
+    const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight))
+    const width = Math.max(1, Math.round(image.naturalWidth * scale))
+    const height = Math.max(1, Math.round(image.naturalHeight * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('浏览器无法处理这张图片')
+    context.fillStyle = '#fff'
+    context.fillRect(0, 0, width, height)
+    context.drawImage(image, 0, 0, width, height)
+    return canvas.toDataURL('image/jpeg', 0.82)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }
 
 // 票务类型 → 账本分类（对齐 Ledger 的 CATS）
@@ -109,6 +144,11 @@ export async function extractBookings(text: string): Promise<Booking[]> {
 export async function extractBookingsFromImage(image: string): Promise<Booking[]> {
   const data = await aiRequest({ op: 'vision', image })
   return (data.bookings || []) as Booking[]
+}
+
+export async function scanReceipt(image: string): Promise<ReceiptScanResult> {
+  const data = await aiRequest({ op: 'receipt', image })
+  return data.receipt as ReceiptScanResult
 }
 
 export async function intakePlan(input: IntakeInput): Promise<IntakeResult> {

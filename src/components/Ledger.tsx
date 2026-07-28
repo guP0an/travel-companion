@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { addExpense, assignExpenseToItinerary, deleteExpense, listExpenses, listMyItineraries, type Expense, type SavedItinerary } from '../lib/db'
+import { compressForVision, scanReceipt } from '../lib/plan'
 import { ledgerSummary } from '../../shared/ledger'
 
 const CATS = ['餐饮', '交通', '门票', '住宿', '购物', '其他']
@@ -11,9 +12,12 @@ export default function Ledger({ currentTripId, onBack }: { currentTripId: strin
   const [selectedId, setSelectedId] = useState<string | null>(currentTripId)
   const [cat, setCat] = useState('餐饮')
   const [amount, setAmount] = useState('')
+  const [spentAt, setSpentAt] = useState('')
   const [note, setNote] = useState('')
   const [receipts, setReceipts] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [scanMessage, setScanMessage] = useState('')
   const [err, setErr] = useState('')
 
   const friendly = (e: unknown) => {
@@ -45,11 +49,32 @@ export default function Ledger({ currentTripId, onBack }: { currentTripId: strin
   const receiptPreviews = useMemo(() => receipts.map((file) => URL.createObjectURL(file)), [receipts])
   useEffect(() => () => receiptPreviews.forEach(URL.revokeObjectURL), [receiptPreviews])
 
-  const chooseReceipts = (files: FileList | null) => {
-    if (!files) return
-    const images = Array.from(files).filter((file) => file.type.startsWith('image/'))
-    if (images.length !== files.length) setErr('凭证只能上传图片')
-    setReceipts((current) => [...current, ...images].slice(0, 3))
+  const chooseReceipt = async (file?: File) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setErr('凭证只能上传图片')
+      return
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setErr('单张凭证请控制在 15MB 以内')
+      return
+    }
+    setReceipts([file])
+    setScanning(true)
+    setErr('')
+    setScanMessage('正在识别小票…')
+    try {
+      const result = await scanReceipt(await compressForVision(file))
+      setAmount(result.amount ? String(result.amount) : '')
+      setSpentAt(result.spentAt)
+      setCat(result.category)
+      setNote([result.merchant, result.note].filter(Boolean).join(' · '))
+      setScanMessage(result.confidence === 'low' ? '请重点核对金额和日期' : '已识别，请核对后确认')
+    } catch {
+      setScanMessage('没认清，可以手动填写')
+    } finally {
+      setScanning(false)
+    }
   }
 
   const add = async () => {
@@ -62,10 +87,18 @@ export default function Ledger({ currentTripId, onBack }: { currentTripId: strin
     setBusy(true)
     setErr('')
     try {
-      await addExpense({ itinerary_id: selectedId, category: cat, amount: value, note: note.trim() }, receipts)
+      await addExpense({
+        itinerary_id: selectedId,
+        category: cat,
+        amount: value,
+        note: note.trim(),
+        spent_at: spentAt,
+      }, receipts)
       setAmount('')
+      setSpentAt('')
       setNote('')
       setReceipts([])
+      setScanMessage('')
       load()
     } catch (error) {
       setErr(friendly(error))
@@ -156,25 +189,31 @@ export default function Ledger({ currentTripId, onBack }: { currentTripId: strin
                   </button>
                 ))}
               </div>
-              <div className="flex gap-3 items-end">
-                <input value={amount} onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder="金额 ¥" className="font-serif" style={{ ...underline, width: '90px' }} />
-                <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="备注（选填）" style={{ ...underline, flex: 1 }} />
-                <button onClick={add} disabled={busy} aria-label="记一笔" className="font-serif disabled:opacity-60" style={{ background: 'var(--color-seal)', color: '#F7F3EA', border: 'none', borderRadius: '6px', width: '40px', height: '46px', flex: '0 0 auto', writingMode: 'vertical-rl', letterSpacing: '3px', fontSize: '13px', lineHeight: 1, cursor: 'pointer' }}>
-                  记一笔
+              <div className="ledger-entry-fields">
+                <input type="date" value={spentAt} onChange={(event) => setSpentAt(event.target.value)} aria-label="消费日期" style={{ ...underline, width: '100%' }} />
+                <input value={amount} onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder="金额 ¥" className="font-serif" style={{ ...underline, width: '100%' }} />
+                <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="商家 / 备注（可修改）" className="ledger-note" style={{ ...underline, width: '100%' }} />
+                <button onClick={add} disabled={busy || scanning} aria-label="确认记账" className="font-serif disabled:opacity-60" style={{ background: 'var(--color-seal)', color: '#F7F3EA', border: 'none', borderRadius: '6px', width: '42px', height: '74px', flex: '0 0 auto', writingMode: 'vertical-rl', letterSpacing: '3px', fontSize: '13px', lineHeight: 1, cursor: 'pointer' }}>
+                  确认记账
                 </button>
               </div>
               <div className="ledger-receipt-picker">
                 <label>
-                  ＋ 添加凭证
-                  <input type="file" accept="image/*" multiple onChange={(event) => { chooseReceipts(event.target.files); event.target.value = '' }} />
+                  拍小票
+                  <input type="file" accept="image/*" capture="environment" disabled={busy || scanning} onChange={(event) => { void chooseReceipt(event.target.files?.[0]); event.target.value = '' }} />
                 </label>
-                {receipts.length > 0 && <span>已选 {receipts.length} 张</span>}
+                <label>
+                  上传图片
+                  <input type="file" accept="image/*" disabled={busy || scanning} onChange={(event) => { void chooseReceipt(event.target.files?.[0]); event.target.value = '' }} />
+                </label>
+                {receipts.length > 0 && <span>已选 1 张</span>}
+                {scanMessage && <span className="ledger-scan-status" role="status">{scanMessage}</span>}
               </div>
               {receiptPreviews.length > 0 && (
                 <div className="ledger-receipt-previews">
-                  {receiptPreviews.map((url, index) => (
-                    <button key={url} onClick={() => setReceipts((files) => files.filter((_, itemIndex) => itemIndex !== index))} title="移除这张凭证">
-                      <img src={url} alt={`待上传凭证 ${index + 1}`} />
+                  {receiptPreviews.map((url) => (
+                    <button key={url} onClick={() => setReceipts([])} title="移除这张凭证">
+                      <img src={url} alt="待上传凭证" />
                       <span aria-hidden>×</span>
                     </button>
                   ))}
