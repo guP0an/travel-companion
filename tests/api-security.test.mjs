@@ -11,9 +11,11 @@ import {
   createRateLimiter,
   dateRange,
   extractBookingsFromImage,
+  extractReceiptFromImage,
   fetchWalkingRoute,
   intake,
   intakeQuestions,
+  normalizeReceiptResult,
   redactSensitiveText,
   resolveRelativeDepartureDate,
   searchAmapPoi,
@@ -86,6 +88,7 @@ test('API body validation rejects oversized and invalid requests', () => {
   assert.throws(() => validateApiBody({ op: 'plan', destination: '', days: 3 }), ApiError)
   assert.throws(() => validateApiBody({ op: 'extract', text: 'x'.repeat(20_001) }), ApiError)
   assert.throws(() => validateApiBody({ op: 'vision', image: 'https://example.com/ticket.png' }), ApiError)
+  assert.throws(() => validateApiBody({ op: 'receipt', image: 'https://example.com/receipt.png' }), ApiError)
   assert.throws(() => validateApiBody({ op: 'revise', plan: itinerary, instruction: '' }), ApiError)
   assert.doesNotThrow(() => validateApiBody({ op: 'plan', destination: '京都', days: 3 }))
   assert.doesNotThrow(() => validateApiBody({ op: 'plan', destination: '', days: 3, ticketText: 'G304 香港西九龙到武汉' }))
@@ -98,6 +101,10 @@ test('API body validation rejects oversized and invalid requests', () => {
     timezone: 'Asia/Shanghai',
   }))
   assert.throws(() => validateApiBody({ op: 'intake', request: '', days: 3 }), ApiError)
+  assert.doesNotThrow(() => validateApiBody({
+    op: 'receipt',
+    image: `data:image/jpeg;base64,${Buffer.alloc(64, 1).toString('base64')}`,
+  }))
 })
 
 test('planning intake resolves this weekend and asks only blocking questions', () => {
@@ -193,6 +200,57 @@ test('Kimi vision request uses multimodal JSON mode and removes personal fields'
     title: 'G100 上海虹桥到北京南',
     fields: { 日期: '2026-07-20', 车次: 'G100' },
   }])
+})
+
+test('Kimi receipt scan returns only editable ledger fields', async () => {
+  const image = `data:image/jpeg;base64,${Buffer.alloc(64, 1).toString('base64')}`
+  let request
+  const receipt = await extractReceiptFromImage(image, {
+    MOONSHOT_API_KEY: 'moonshot-test-key',
+    KIMI_VISION_MODEL: 'kimi-k2.6',
+  }, async (url, init) => {
+    request = { url, init }
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        amount: '1280.50',
+        spentAt: '2026-08-02',
+        category: '餐饮',
+        merchant: '东京寿司店',
+        note: '晚餐',
+        confidence: 'medium',
+        ignored: 'server must drop this',
+      }) } }],
+    }), { status: 200 })
+  })
+
+  assert.equal(request.url, 'https://api.moonshot.cn/v1/chat/completions')
+  const body = JSON.parse(request.init.body)
+  assert.equal(body.model, 'kimi-k2.6')
+  assert.deepEqual(body.response_format, { type: 'json_object' })
+  assert.deepEqual(receipt, {
+    amount: 1280.5,
+    spentAt: '2026-08-02',
+    category: '餐饮',
+    merchant: '东京寿司店',
+    note: '晚餐',
+    confidence: 'medium',
+  })
+
+  assert.deepEqual(normalizeReceiptResult({
+    amount: -3,
+    spentAt: '2026-99-99',
+    category: '娱乐',
+    merchant: 123,
+    note: 'x'.repeat(400),
+    confidence: 'certain',
+  }), {
+    amount: null,
+    spentAt: '',
+    category: '其他',
+    merchant: '',
+    note: 'x'.repeat(300),
+    confidence: 'low',
+  })
 })
 
 test('itinerary validation requires all three daily periods', () => {

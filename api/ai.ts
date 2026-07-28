@@ -467,7 +467,7 @@ export function assertItinerary(value: any) {
 
 export function validateApiBody(body: any) {
   if (!body || typeof body !== 'object') throw new ApiError(400, 'invalid body')
-  if (!['intake', 'plan', 'extract', 'vision', 'revise'].includes(body.op)) throw new ApiError(400, 'unknown op')
+  if (!['intake', 'plan', 'extract', 'vision', 'receipt', 'revise'].includes(body.op)) throw new ApiError(400, 'unknown op')
   if (body.op === 'intake') {
     if (!isString(body.request) || !body.request.trim() || body.request.length > 2_000) throw new ApiError(400, 'invalid intake request')
     if (!Number.isInteger(body.days) || body.days < 1 || body.days > 15) throw new ApiError(400, 'days must be 1-15')
@@ -482,7 +482,7 @@ export function validateApiBody(body: any) {
     if ((!destination && !ticketText) || destination.length > 100 || ticketText.length > 20_000) throw new ApiError(400, 'invalid plan input')
   }
   if (body.op === 'extract' && (!isString(body.text) || !body.text.trim() || body.text.length > 20_000)) throw new ApiError(400, 'invalid OCR text')
-  if (body.op === 'vision') validateVisionDataUrl(body.image)
+  if (body.op === 'vision' || body.op === 'receipt') validateVisionDataUrl(body.image)
   if (body.op === 'revise' && (!isString(body.instruction) || !body.instruction.trim() || body.instruction.length > 2_000 || !body.plan)) throw new ApiError(400, 'invalid revision')
 }
 
@@ -628,7 +628,7 @@ export function validateVisionDataUrl(value: unknown): string {
   return value
 }
 
-export async function extractBookingsFromImage(image: string, env: Env, fetcher: FetchLike = fetch) {
+async function kimiVision(image: string, prompt: string, instruction: string, env: Env, fetcher: FetchLike) {
   const key = env.MOONSHOT_API_KEY || env.KIMI_API_KEY
   const base = (env.KIMI_BASE_URL || 'https://api.moonshot.cn/v1').replace(/\/$/, '')
   const model = env.KIMI_VISION_MODEL || 'kimi-k2.6'
@@ -641,12 +641,12 @@ export async function extractBookingsFromImage(image: string, env: Env, fetcher:
       thinking: { type: 'disabled' },
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: EXTRACT_PROMPT },
+        { role: 'system', content: prompt },
         {
           role: 'user',
           content: [
             { type: 'image_url', image_url: { url: validateVisionDataUrl(image) } },
-            { type: 'text', text: '直接识别这张出行预订截图。只输出规定的 JSON，不要描述图片。' },
+            { type: 'text', text: instruction },
           ],
         },
       ],
@@ -657,7 +657,17 @@ export async function extractBookingsFromImage(image: string, env: Env, fetcher:
   const data = await response.json() as any
   const content = data.choices?.[0]?.message?.content
   if (!isString(content) || !content.trim()) throw new Error('Kimi Vision 返回空内容')
-  return normalizeBookings(JSON.parse(content))
+  return JSON.parse(content)
+}
+
+export async function extractBookingsFromImage(image: string, env: Env, fetcher: FetchLike = fetch) {
+  return normalizeBookings(await kimiVision(
+    image,
+    EXTRACT_PROMPT,
+    '直接识别这张出行预订截图。只输出规定的 JSON，不要描述图片。',
+    env,
+    fetcher,
+  ))
 }
 
 export async function extractBookings(text: string, env: Env, fetcher: FetchLike = fetch) {
@@ -666,6 +676,47 @@ export async function extractBookings(text: string, env: Env, fetcher: FetchLike
     { role: 'user', content: '截图 OCR 文字：「' + redactSensitiveText(text) + '」' },
   ], { temperature: 0.2, max_tokens: 2048 }, fetcher)
   return normalizeBookings(JSON.parse(content))
+}
+
+const RECEIPT_CATEGORIES = ['餐饮', '交通', '门票', '住宿', '购物', '其他'] as const
+type ReceiptCategory = typeof RECEIPT_CATEGORIES[number]
+
+export interface ReceiptScanResult {
+  amount: number | null
+  spentAt: string
+  category: ReceiptCategory
+  merchant: string
+  note: string
+  confidence: 'high' | 'medium' | 'low'
+}
+
+export const RECEIPT_PROMPT = `你负责识别旅行消费小票。只输出 JSON：
+{"amount":number|null,"spentAt":"YYYY-MM-DD或空串","category":"餐饮|交通|门票|住宿|购物|其他","merchant":"","note":"","confidence":"high|medium|low"}。
+amount 只取最终实付总额，不要把订单号、税号、时间或单价当金额；看不清就给 null。
+merchant 写商家名，note 写简短消费摘要。不要输出姓名、手机号、卡号、订单号、税号或地址。`
+
+export function normalizeReceiptResult(value: any): ReceiptScanResult {
+  const amount = Number(value?.amount)
+  const spentAt = isString(value?.spentAt) ? value.spentAt : ''
+  const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(spentAt) ? new Date(`${spentAt}T00:00:00Z`) : null
+  return {
+    amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+    spentAt: parsedDate && !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === spentAt ? spentAt : '',
+    category: RECEIPT_CATEGORIES.includes(value?.category) ? value.category : '其他',
+    merchant: cleanAlertText(value?.merchant, 120),
+    note: cleanAlertText(value?.note, 300),
+    confidence: ['high', 'medium', 'low'].includes(value?.confidence) ? value.confidence : 'low',
+  }
+}
+
+export async function extractReceiptFromImage(image: string, env: Env, fetcher: FetchLike = fetch) {
+  return normalizeReceiptResult(await kimiVision(
+    image,
+    RECEIPT_PROMPT,
+    '识别这张消费小票，只输出规定的 JSON。',
+    env,
+    fetcher,
+  ))
 }
 
 export async function revise(body: any, env: Env, fetcher: FetchLike = fetch) {
@@ -725,6 +776,7 @@ export async function handleApiRequest(req: any, res: any, env: Env, fetcher: Fe
     if (op === 'plan') return res.end(JSON.stringify(await generate(body, env, fetcher)))
     if (op === 'extract') return res.end(JSON.stringify({ bookings: await extractBookings(body.text, env, fetcher) }))
     if (op === 'vision') return res.end(JSON.stringify({ bookings: await extractBookingsFromImage(body.image, env, fetcher), provider: 'kimi-k2.6' }))
+    if (op === 'receipt') return res.end(JSON.stringify({ receipt: await extractReceiptFromImage(body.image, env, fetcher), provider: 'kimi-k2.6' }))
     return res.end(JSON.stringify(await revise(body, env, fetcher)))
   } catch (e) {
     const status = e instanceof ApiError ? e.status : 502
@@ -733,7 +785,7 @@ export async function handleApiRequest(req: any, res: any, env: Env, fetcher: Fe
       ? '请先登录后再让丸玩规划～'
       : status === 429
         ? '请求有点频繁，歇一会儿再找丸玩吧～'
-        : op === 'extract' || op === 'vision'
+        : op === 'extract' || op === 'vision' || op === 'receipt'
           ? '这张图没读清，手动填一下也行～'
           : op === 'revise'
             ? '丸玩没改明白，换句话说说看～'
