@@ -58,6 +58,7 @@ drop policy if exists "own expenses" on public.expenses;
 create policy "own expenses" on public.expenses
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create index if not exists expenses_user_idx on public.expenses (user_id, created_at desc);
+create index if not exists expenses_user_itinerary_idx on public.expenses (user_id, itinerary_id, created_at desc);
 alter table public.expenses add column if not exists receipt_paths text[] not null default '{}';
 
 -- 景点打卡：打卡/评分/评论/照片

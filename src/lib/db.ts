@@ -36,6 +36,7 @@ export async function listMyItineraries(): Promise<SavedItinerary[]> {
 // ===== 账本 / 消费 =====
 export interface Expense {
   id: string
+  itinerary_id: string | null
   category: string
   amount: number
   note: string
@@ -48,13 +49,18 @@ export interface Expense {
 export async function listExpenses(): Promise<Expense[]> {
   let { data, error } = await supabase
     .from('expenses')
-    .select('id, category, amount, note, spent_at, created_at, receipt_paths')
+    .select('id, itinerary_id, category, amount, note, spent_at, created_at, receipt_paths')
     .order('created_at', { ascending: false })
-  if (error && (error.message.includes('receipt_paths') || error.message.includes('schema cache'))) {
+  if (error && (error.message.includes('itinerary_id') || error.message.includes('schema cache'))) {
     const fallback = await supabase
       .from('expenses')
-      .select('id, category, amount, note, spent_at, created_at')
+      .select('id, category, amount, note, spent_at, created_at, receipt_paths')
       .order('created_at', { ascending: false })
+    data = fallback.data as typeof data
+    error = fallback.error
+  }
+  if (error && (error.message.includes('receipt_paths') || error.message.includes('schema cache'))) {
+    const fallback = await supabase.from('expenses').select('id, category, amount, note, spent_at, created_at').order('created_at', { ascending: false })
     data = fallback.data as typeof data
     error = fallback.error
   }
@@ -70,6 +76,7 @@ export async function listExpenses(): Promise<Expense[]> {
   }
   return rows.map((row) => ({
     ...row,
+    itinerary_id: row.itinerary_id || null,
     receipt_paths: row.receipt_paths || [],
     receipt_urls: (row.receipt_paths || []).map((path) => signedByPath.get(path)).filter(Boolean) as string[],
   }))
@@ -118,7 +125,7 @@ async function uploadExpenseReceipts(files: File[], userId: string): Promise<str
 }
 
 export async function addExpense(
-  e: { category: string; amount: number; note: string; spent_at?: string },
+  e: { itinerary_id?: string | null; category: string; amount: number; note: string; spent_at?: string },
   receiptFiles: File[] = [],
 ): Promise<void> {
   const {
@@ -128,6 +135,7 @@ export async function addExpense(
   const receiptPaths = receiptFiles.length ? await uploadExpenseReceipts(receiptFiles, user.id) : []
   const row: Record<string, unknown> = {
     user_id: user.id,
+    itinerary_id: e.itinerary_id || null,
     category: e.category,
     amount: e.amount,
     note: e.note,
@@ -155,6 +163,11 @@ export async function expenseExists(e: { category: string; amount: number; note:
     .limit(1)
   if (error) throw error
   return Boolean(data?.length)
+}
+
+export async function assignExpenseToItinerary(id: string, itineraryId: string): Promise<void> {
+  const { error } = await supabase.from('expenses').update({ itinerary_id: itineraryId }).eq('id', id)
+  if (error) throw error
 }
 
 export async function deleteExpense(id: string): Promise<void> {
