@@ -124,26 +124,32 @@ test('planning intake resolves this weekend and asks only blocking questions', (
 })
 
 test('planning intake returns questions before generating an incomplete trip', async () => {
+  let deepseekRequest
   const result = await intake({
     request: '这周末去日本',
     days: 3,
     pace: 'leisurely',
     today: '2026-07-28',
     timezone: 'Asia/Shanghai',
-  }, { DEEPSEEK_API_KEY: 'test-key' }, async () => new Response(JSON.stringify({
-    choices: [{ message: { content: JSON.stringify({
-      destination: '日本',
-      countryOnly: true,
-      international: true,
-      departureCity: '',
-      departureDate: '',
-      weekendMentioned: true,
-      companions: '',
-      travelerNote: '',
-    }) } }],
-  }), { status: 200 }))
+  }, { DEEPSEEK_API_KEY: 'test-key' }, async (_url, init) => {
+    deepseekRequest = JSON.parse(init.body)
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        destination: '日本',
+        countryOnly: true,
+        international: true,
+        departureCity: '',
+        departureDate: '',
+        weekendMentioned: true,
+        companions: '',
+        travelerNote: '',
+      }) } }],
+    }), { status: 200 })
+  })
 
   assert.equal(result.status, 'needs_input')
+  assert.equal(deepseekRequest.model, 'deepseek-v4-flash')
+  assert.deepEqual(deepseekRequest.thinking, { type: 'disabled' })
   assert.deepEqual(result.questions, [
     '你从哪座城市出发？',
     '日本准备去哪座城市或地区？',

@@ -10,11 +10,11 @@ import {
 
 export { intakeQuestions, resolveRelativeDepartureDate }
 
-// 丸丸的 AI 接口——serverless 函数。
+// 丸玩的 AI 接口——serverless 函数。
 // 本地 dev 由 vite 中间件直接调用下面的具名导出；线上由 default handler 按 body.op 分发。
 // key 永远只在服务端（env），绝不进前端 bundle。
 
-export const SYSTEM_PROMPT = `你是「丸丸」，一个温柔、贴心、记得用户脾气的旅行管家、旅伴，不是冷冰冰的工具。
+export const SYSTEM_PROMPT = `你是「丸玩」，一个温柔、贴心、记得用户脾气的旅行管家、旅伴，不是冷冰冰的工具。
 语气温暖体贴，会照顾用户的习惯：不爱早起就不排早场，怕排队就提醒错峰，爱吃就在吃上多花心思。中文回复。
 
 你绝不编造：只推荐真实、知名、可查证的地点。不确定的地址/电话/票价/营业时间宁可留空或写大致范围，绝不编精确数字。
@@ -49,7 +49,7 @@ export const SYSTEM_PROMPT = `你是「丸丸」，一个温柔、贴心、记�
     } ] } ]   // 每天必须有 morning/afternoon/evening 三段
   } ],        // days 数组长度 = meta.days
   "closing": string,    // 结语，邀请用户让你调整
-  "disclaimer": "营业时间和价格可能有变，出行前丸丸建议你再核实一次哦～"
+  "disclaimer": "营业时间和价格可能有变，出行前丸玩建议你再核实一次哦～"
 }
 要求：按节奏定密度（紧凑多排、溜达留白）；必去清单必须排进去；避雷里的回避；照顾同行人（带娃/带老人降强度）；**每条都给具体开始时间(timeHint，如 09:30)，每天内按时间先后排列、符合常理(别把午饭排早餐前)**；**每天都填具体日期(date，如 2026-06-19)**，有票/酒店或出发日期时按其推算连续日期；其余选填给不准就留空串。
 **prep（行前准备/注意事项）必给**：默认用户从**中国大陆**出发（除非补充里另有说明），据此先判断目的地是否**跨境或跨制式**（如去香港/澳门/台湾/国外）。跨境务必覆盖这些坑：①货币与换汇（带不带现金、当地用什么钱）；②插头电压（如香港英标Type G三脚、日本110V A型，大陆双扁脚插不进要带转换头）；③网络流量（大陆套餐到境外按漫游/未必通，提醒开境外流量包或当地卡/eSIM）；④证件签注（港澳通行证+签注、护照+签证，别只带身份证）；⑤支付方式（能否用支付宝/微信、要不要现金、八达通等当地卡）。国内目的地则按需给（天气穿衣、高反、旺季预约、特殊证件等），不必硬凑货币/插头。每条 title 一句话说清"要做什么"，detail 补原因或怎么做。
@@ -489,12 +489,12 @@ export function validateApiBody(body: any) {
 async function chat(env: Env, messages: any[], opts: { temperature: number; max_tokens: number }, fetcher: FetchLike = fetch) {
   const key = env.DEEPSEEK_API_KEY
   const base = env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
-  const model = env.DEEPSEEK_MODEL || 'deepseek-chat'
+  const model = env.DEEPSEEK_MODEL || 'deepseek-v4-flash'
   if (!key) throw new Error('DEEPSEEK_API_KEY 未配置')
   const r = await fetcher(`${base}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages, response_format: { type: 'json_object' }, ...opts }),
+    body: JSON.stringify({ model, messages, thinking: { type: 'disabled' }, response_format: { type: 'json_object' }, ...opts }),
   })
   if (!r.ok) throw new Error('DeepSeek HTTP ' + r.status)
   const data = (await r.json()) as any
@@ -730,14 +730,14 @@ export async function handleApiRequest(req: any, res: any, env: Env, fetcher: Fe
     const status = e instanceof ApiError ? e.status : 502
     res.statusCode = status
     const fm = status === 401
-      ? '请先登录后再让丸丸规划～'
+      ? '请先登录后再让丸玩规划～'
       : status === 429
-        ? '请求有点频繁，歇一会儿再找丸丸吧～'
+        ? '请求有点频繁，歇一会儿再找丸玩吧～'
         : op === 'extract' || op === 'vision'
           ? '这张图没读清，手动填一下也行～'
           : op === 'revise'
-            ? '丸丸没改明白，换句话说说看～'
-            : '丸丸这会儿有点忙，稍后再让我排一次好吗～'
+            ? '丸玩没改明白，换句话说说看～'
+            : '丸玩这会儿有点忙，稍后再让我排一次好吗～'
     console.error('[api/ai]', { op, status, error: (e as Error).message })
     return res.end(JSON.stringify({ ok: false, friendlyMessage: fm }))
   }

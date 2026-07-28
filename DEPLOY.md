@@ -1,6 +1,6 @@
 # 部署到 Vercel（让别人也能用）
 
-丸丸前端是纯静态（Vite 打包到 `dist`），DeepSeek 代理是 `api/` 下的 serverless 函数（key 只在服务端）。
+丸玩前端是纯静态（Vite 打包到 `dist`），DeepSeek 代理是 `api/` 下的 serverless 函数（key 只在服务端）。
 Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 
 ## 当前部署状态（2026-07-27）
@@ -28,7 +28,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 |---|---|---|
 | `DEEPSEEK_API_KEY` | （新轮换的 key） | 服务端调用 DeepSeek，**不带 VITE_ 前缀，不进前端** |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | |
-| `DEEPSEEK_MODEL` | `deepseek-chat` | |
+| `DEEPSEEK_MODEL` | `deepseek-v4-flash` | |
 | `MOONSHOT_API_KEY` | （Kimi 开放平台服务端 Key） | 使用 `kimi-k2.6` 识别票务、机票和酒店截图 |
 | `KIMI_BASE_URL` | `https://api.moonshot.cn/v1` | Kimi OpenAI 兼容接口 |
 | `KIMI_VISION_MODEL` | `kimi-k2.6` | 多模态识图模型 |
@@ -61,7 +61,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 ### Kimi 识图说明
 
 - 手机上传的图片会先在浏览器缩放到最长边 1800px，并转成压缩 JPEG，减少等待和 Token 消耗。
-- 服务端只接收 JPEG/PNG/WebP Data URL，解码后上限约 2MB；丸丸不把图片写入数据库或 Storage。
+- 服务端只接收 JPEG/PNG/WebP Data URL，解码后上限约 2MB；丸玩不把图片写入数据库或 Storage。
 - Kimi 只返回规划所需的票务/酒店结构，姓名、手机号、证件号、订单号等字段会再次在服务端移除。
 - `MOONSHOT_API_KEY` 未配置或 Kimi 暂时失败时，前端自动回退到 Tesseract 本地 OCR + DeepSeek 结构化提取。
 
@@ -104,7 +104,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 2. 在生产 Supabase 执行最新 `supabase/schema.sql`，创建只允许服务端访问的 `wechat_identities`。
 3. 运行 `supabase gen signing-key --algorithm ES256`，在 Supabase Authentication → JWT Signing Keys 导入并按官方流程启用；同一份私有 JWK 写入 Vercel `SUPABASE_JWT_PRIVATE_JWK`。
 4. 在 Vercel 配齐小程序微信登录环境变量并重新部署；接口为 `POST /api/wechat-auth`。
-5. 绑定丸丸自有 HTTPS 域名，在微信公众平台加入 request 合法域名，并更新 `miniprogram/config.js`。
+5. 绑定丸玩自有 HTTPS 域名，在微信公众平台加入 request 合法域名，并更新 `miniprogram/config.js`。
 6. 在微信开发者工具中换成真实 AppID，验证首次登录、重复登录、过期续登、数据隔离和无效 code。
 7. 微信内网页登录需认证公众号，在公众号后台把 `wanwantrip.online` 配为网页授权域名，并配置 `WECHAT_H5_APP_ID`、`WECHAT_H5_APP_SECRET`。
 8. PC 扫码登录需微信开放平台已审核的网站应用，把回调域名配置为 `wanwantrip.online`，并配置 `WECHAT_WEB_APP_ID`、`WECHAT_WEB_APP_SECRET`。

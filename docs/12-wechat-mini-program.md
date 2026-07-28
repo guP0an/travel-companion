@@ -2,7 +2,7 @@
 
 > 状态：小程序、微信内网页和 PC 扫码代码已完成，待微信平台参数与生产验收
 > 最近更新：2026-07-27
-> 用途：说明丸丸微信三端登录架构、部署步骤、安全边界和验收标准。
+> 用途：说明丸玩微信三端登录架构、部署步骤、安全边界和验收标准。
 
 ## 1. 三端为什么需要不同入口
 
@@ -42,7 +42,7 @@ PC 网页：开放平台扫码 → /api/wechat-oauth → Supabase Magic Link 会
 4. 在 Supabase Authentication → JWT Signing Keys 导入该私钥并按官方轮换流程启用；旧 key 在确认网页会话正常前不要撤销。
 5. 把同一份私有 JWK 作为 `SUPABASE_JWT_PRIVATE_JWK` 存进 Vercel Sensitive Environment Variable。
 6. 在 Vercel 配置 `WECHAT_APP_ID`、`WECHAT_APP_SECRET`、`WECHAT_IDENTITY_PEPPER`、`SUPABASE_SECRET_KEY` 和可选 `WECHAT_TOKEN_TTL_SECONDS`。
-7. 在微信公众平台把丸丸正式 HTTPS API 域名加入“request 合法域名”，并同步修改 `miniprogram/config.js`。
+7. 在微信公众平台把丸玩正式 HTTPS API 域名加入“request 合法域名”，并同步修改 `miniprogram/config.js`。
 8. 在微信开发者工具中把 `project.config.json` 的游客 AppID 替换为真实 AppID，完成真机登录测试。
 
 ### 3.2 微信内网页

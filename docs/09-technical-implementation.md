@@ -39,7 +39,7 @@
 | AI 服务端 | Vercel Function `api/ai.ts` |
 | 认证与数据库 | Supabase Auth + Postgres + RLS |
 | 图片存储 | Supabase Storage：公开打卡图 `checkin-photos`、私有账本凭证 `expense-receipts` |
-| 行程模型 | DeepSeek `deepseek-chat` |
+| 行程模型 | DeepSeek `deepseek-v4-flash` |
 | 视觉模型 | Kimi `kimi-k2.6` |
 | 部署 | Vercel，GitHub `master` 自动部署 |
 | 测试 | TypeScript build + Node test runner |
@@ -124,7 +124,7 @@ PlanForm
   → OCR 文本脱敏后交给 DeepSeek 结构化
 ```
 
-丸丸不把票据原图写入数据库或 Storage。图片会发送给 Kimi 完成识别；这项数据使用说明放入隐私政策或上传说明，不在主操作区展示模型、OCR 等内部实现细节。
+丸玩不把票据原图写入数据库或 Storage。图片会发送给 Kimi 完成识别；这项数据使用说明放入隐私政策或上传说明，不在主操作区展示模型、OCR 等内部实现细节。
 
 ### 5.3 保存和读取
 

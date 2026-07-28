@@ -1,4 +1,4 @@
--- 丸丸 · 为现有线上项目增加账本凭证
+-- 丸玩 · 为现有线上项目增加账本凭证
 -- Supabase Dashboard -> SQL Editor -> New query，整段运行一次。
 
 alter table public.expenses

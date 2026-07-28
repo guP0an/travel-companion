@@ -1,4 +1,4 @@
--- 丸丸 · 打卡照片云存储（Supabase Storage）
+-- 丸玩 · 打卡照片云存储（Supabase Storage）
 -- 在 Supabase 控制台 → SQL Editor 整段粘贴运行一次。
 -- 也可在 Dashboard → Storage → New bucket 手动建：名字 checkin-photos，勾选 Public。
 

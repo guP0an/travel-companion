@@ -150,7 +150,7 @@ export default function PlanForm({
     }
     const answer = destination.trim()
     if (!answer && !ticketText) {
-      setErr('告诉丸丸去哪儿，或传一张票/酒店截图')
+      setErr('告诉丸玩去哪儿，或传一张票/酒店截图')
       return
     }
     setBusy(true)
@@ -211,7 +211,7 @@ export default function PlanForm({
         id="planner-input"
         value={destination}
         onChange={(e) => setDestination(e.target.value)}
-        placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : questions.length ? '把上面几个问题一次告诉丸玩…' : '告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…'}
+        placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : questions.length ? '把上面几个问题一次告诉丸玩…' : '告诉丸玩：去哪 · 几个人 · 想玩什么 · 预算…'}
         rows={1}
         className="font-serif"
         style={{ fieldSizing: 'content', width: '100%', minHeight: '28px', border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', outline: 'none', resize: 'none', color: 'var(--color-ink)', fontSize: '15px', lineHeight: 1.8, padding: '6px 2px', display: 'block' } as React.CSSProperties}
@@ -251,7 +251,7 @@ export default function PlanForm({
         ))}
       </div>
 
-      {/* 上传票务截图，丸丸自己读 */}
+      {/* 上传票务截图，丸玩自己读 */}
       <div className="plan-upload-row">
         <label
           style={{
@@ -263,7 +263,7 @@ export default function PlanForm({
             paddingBottom: '1px',
           }}
         >
-          {ocrBusy ? '丸丸正在看截图…' : '＋ 上传票务截图，丸丸自己读（选填）'}
+          {ocrBusy ? '丸玩正在看截图…' : '＋ 上传票务截图，丸玩自己读（选填）'}
           <input type="file" accept="image/*" onChange={onFile} disabled={ocrBusy} style={{ display: 'none' }} />
         </label>
         {bookings.length > 0 && (
@@ -342,12 +342,12 @@ export default function PlanForm({
                 </div>
               )
             })}
-            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>丸丸会把这些票/酒店排进行程；金额会在行程保存时归入这趟账本；读错了点「改」</div>
+            <div style={{ fontSize: '11px', color: 'var(--color-ink-faint)' }}>丸玩会把这些票/酒店排进行程；金额会在行程保存时归入这趟账本；读错了点「改」</div>
           </div>
         )}
         {bookings.length === 0 && ocrText && (
           <div className="mt-2" style={{ fontSize: '12px', lineHeight: 1.7, color: 'var(--color-ink-soft)', background: 'var(--color-qing-soft)', borderRadius: '8px', padding: '8px 10px' }}>
-            读到文字但没认出预订，丸丸会按原文参考。
+            读到文字但没认出预订，丸玩会按原文参考。
             <button onClick={() => setOcrText('')} style={{ marginLeft: '8px', background: 'none', border: 'none', color: 'var(--color-ink-faint)', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}>
               清除
             </button>
@@ -361,12 +361,12 @@ export default function PlanForm({
         <button
           onClick={go}
           className="plan-primary font-serif"
-          aria-label="让丸丸排一版"
+          aria-label="让丸玩排一版"
         >
           <span className="plan-primary-mark" aria-hidden>
             {DANGO.map((color) => <span key={color} style={{ background: color }} />)}
           </span>
-          <span>{hasPlan ? '请丸丸调整行程' : questions.length ? '回答丸玩' : '让丸丸排一版'}</span>
+          <span>{hasPlan ? '请丸玩调整行程' : questions.length ? '回答丸玩' : '让丸玩排一版'}</span>
           <span aria-hidden>→</span>
         </button>
       )}

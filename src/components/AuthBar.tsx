@@ -239,7 +239,7 @@ export default function AuthBar() {
       window.history.replaceState({}, '', window.location.pathname)
       setPw('')
       setConfirmPw('')
-      setMsg('密码已更新，可以继续使用丸丸了')
+      setMsg('密码已更新，可以继续使用丸玩了')
       setMode('login')
     })
   }
@@ -255,7 +255,7 @@ export default function AuthBar() {
     )
   }
 
-  const panel = (content: React.ReactNode, title = '登录丸丸') => (
+  const panel = (content: React.ReactNode, title = '登录丸玩') => (
     <div className="account-control">
       <button className="account-trigger" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
         {mode === 'update-password' ? '设置密码' : '登录 / 注册'}
@@ -295,7 +295,7 @@ export default function AuthBar() {
   if (mode === 'email-reset') {
     return panel(
       <div>
-        <div className="auth-helper">输入注册邮箱，丸丸会发一封重置邮件</div>
+        <div className="auth-helper">输入注册邮箱，丸玩会发一封重置邮件</div>
         <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="注册邮箱" style={{ ...underline, width: '100%' }} />
         <div className="auth-actions">
           <button onClick={requestEmailReset} disabled={busy} className="font-serif disabled:opacity-60" style={primaryButton}>发送重置邮件</button>

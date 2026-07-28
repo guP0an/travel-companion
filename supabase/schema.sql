@@ -1,4 +1,4 @@
--- 丸丸 · Supabase 表结构 + 行级安全(RLS)
+-- 丸玩 · Supabase 表结构 + 行级安全(RLS)
 -- 在 Supabase 控制台 → SQL Editor 里整段粘贴运行一次即可。
 -- 对齐 docs/04-architecture-and-data-model.md §7。
 

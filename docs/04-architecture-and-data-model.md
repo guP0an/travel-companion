@@ -43,7 +43,7 @@
           ▼
 ┌──────────────────────────────────────────────────────────────┐
 │              DeepSeek API（OpenAI 兼容 /chat/completions）      │
-│         model: deepseek-chat · 返回结构化行程 JSON             │
+│         model: deepseek-v4-flash · 返回结构化行程 JSON             │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -67,8 +67,8 @@
 | 项 | 取值 | 说明 |
 |----|------|------|
 | 接口 | `POST https://api.deepseek.com/chat/completions` | OpenAI 兼容；鉴权 `Authorization: Bearer $DEEPSEEK_API_KEY` |
-| 主模型 | `deepseek-chat` | 通用对话/生成，性价比高，行程生成够用 |
-| 推理备选 | `deepseek-reasoner` | 复杂多日跨城路线若要更强推理可切；自带思考、更慢更贵 |
+| 主模型 | `deepseek-v4-flash` | 通用对话/生成，性价比高，行程生成够用 |
+| 推理备选 | `deepseek-v4-pro` | 复杂多日跨城路线若要更强推理可切；自带思考、更慢更贵 |
 | 强制 JSON | `response_format: {type: "json_object"}` | **必须在 prompt 里显式描述 `Itinerary` 字段结构**——DeepSeek 不按 schema 校验 |
 | 温度 | `temperature: 1.0` 左右 | DeepSeek 支持温度调节；生成行程偏创意，1.0 附近即可，过低会刻板 |
 | max_tokens | 设足够大（如 8192） | 多日行程 JSON 较长，给够余量免截断 |

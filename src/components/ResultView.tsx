@@ -167,7 +167,7 @@ function ItemRow({
         <input value={item.why} onChange={(e) => onPatch({ why: e.target.value })} placeholder="一句推荐理由" style={{ ...edInput, width: '100%', fontSize: '13px', marginTop: '6px', color: 'var(--color-ink-soft)' }} />
         <div className="flex gap-3 mt-1.5">
           <input value={item.costHint} onChange={(e) => onPatch({ costHint: e.target.value })} placeholder="花费" style={{ ...edInput, width: '90px', fontSize: '12.5px' }} />
-          <input value={item.butlerTip} onChange={(e) => onPatch({ butlerTip: e.target.value })} placeholder="丸丸提醒（选填）" style={{ ...edInput, flex: 1, fontSize: '12.5px' }} />
+          <input value={item.butlerTip} onChange={(e) => onPatch({ butlerTip: e.target.value })} placeholder="丸玩提醒（选填）" style={{ ...edInput, flex: 1, fontSize: '12.5px' }} />
         </div>
       </div>
     )
@@ -203,7 +203,7 @@ function ItemRow({
       </div>
       {item.butlerTip && (
         <div className="mt-2 pl-3" style={{ borderLeft: '1.5px solid var(--color-qing)', fontSize: '12.5px', lineHeight: 1.85, color: 'var(--color-ink-soft)' }}>
-          <span style={{ color: 'var(--color-qing)' }}>丸丸 ·</span> {item.butlerTip}
+          <span style={{ color: 'var(--color-qing)' }}>丸玩 ·</span> {item.butlerTip}
         </div>
       )}
     </div>
