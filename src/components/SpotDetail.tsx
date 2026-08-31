@@ -22,6 +22,24 @@ function packReview(pros: string, cons: string): string {
 
 const STAR_PATH = 'M12 2.7c.43 0 .82.25 1.01.64l2.08 4.22 4.66.68c.44.06.8.37.94.79.14.42.02.88-.3 1.19l-3.37 3.29.8 4.65c.08.44-.1.88-.46 1.14-.36.26-.82.3-1.21.1L12 17.2l-4.15 2.2c-.39.2-.85.16-1.21-.1-.36-.26-.54-.7-.46-1.14l.8-4.65-3.37-3.29c-.32-.31-.44-.77-.3-1.19.14-.42.5-.73.94-.79l4.66-.68 2.08-4.22c.19-.39.58-.64 1.01-.64Z'
 
+function ReviewIcon({ kind }: { kind: 'pros' | 'cons' }) {
+  return (
+    <svg className="review-tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {kind === 'pros' ? (
+        <>
+          <path d="M12 3.5 13.6 8l4.4 1.6-4.4 1.6L12 15.5l-1.6-4.3L6 9.6 10.4 8 12 3.5Z" />
+          <path d="m18.5 14 .7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z" />
+        </>
+      ) : (
+        <>
+          <path d="m12 4.3 8 14H4l8-14Z" />
+          <path d="M12 9v4.2M12 16.3v.1" />
+        </>
+      )}
+    </svg>
+  )
+}
+
 export default function SpotDetail({ name, city, onClose, onSaved }: { name: string; city: string; onClose: () => void; onSaved?: () => void }) {
   const spot = (city ? city + ' ' : '') + name
   const mapUrl = `https://uri.amap.com/search?keyword=${encodeURIComponent(spot)}`
@@ -127,13 +145,14 @@ export default function SpotDetail({ name, city, onClose, onSaved }: { name: str
       </div>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
         {([
-          { k: 'pros', label: '推荐', emoji: '👍', color: 'var(--color-qing)', has: !!pros.trim() },
-          { k: 'cons', label: '踩坑', emoji: '⚠️', color: 'var(--color-seal)', has: !!cons.trim() },
+          { k: 'pros', label: '推荐', color: 'var(--color-qing)', has: !!pros.trim() },
+          { k: 'cons', label: '踩坑', color: 'var(--color-seal)', has: !!cons.trim() },
         ] as const).map((t) => (
           <button
             key={t.k}
             onClick={() => setTab(t.k)}
-            className="font-serif"
+            aria-pressed={tab === t.k}
+            className="review-tab-button font-serif"
             style={{
               flex: 1, padding: '7px 0', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px',
               border: tab === t.k ? `1px solid ${t.color}` : '1px solid var(--color-line)',
@@ -141,7 +160,8 @@ export default function SpotDetail({ name, city, onClose, onSaved }: { name: str
               color: tab === t.k ? t.color : 'var(--color-ink-soft)',
             }}
           >
-            {t.emoji} {t.label}
+            <ReviewIcon kind={t.k} />
+            <span>{t.label}</span>
             {t.has && <span style={{ marginLeft: '5px', color: t.color }}>·</span>}
           </button>
         ))}

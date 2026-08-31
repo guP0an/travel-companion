@@ -22,3 +22,11 @@ test('spot rating uses a soft custom star control', () => {
   assert.match(css, /\.rating-star-button\[aria-pressed="true"\]/)
   assert.match(css, /prefers-reduced-motion: reduce/)
 })
+
+test('spot review tabs use consistent custom icons instead of emoji', () => {
+  assert.match(spotDetail, /ReviewIcon/)
+  assert.match(spotDetail, /review-tab-icon/)
+  assert.match(spotDetail, /aria-pressed=\{tab === t\.k\}/)
+  assert.doesNotMatch(spotDetail, /emoji:/)
+  assert.match(css, /\.review-tab-button:hover \.review-tab-icon/)
+})

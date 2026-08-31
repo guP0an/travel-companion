@@ -223,6 +223,31 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   .rating-star-button,
   .rating-star-glyph { transition: none; }
 }
+.review-tab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+.review-tab-button:hover { transform: translateY(-1px); }
+.review-tab-button:active { transform: translateY(1px) scale(.98); }
+.review-tab-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+.review-tab-button:hover .review-tab-icon { transform: rotate(-5deg) scale(1.08); }
+@media (prefers-reduced-motion: reduce) {
+  .review-tab-button,
+  .review-tab-icon { transition: none; }
+}
 .planner-status {
   margin-top: 24px;
   padding-top: 16px;
