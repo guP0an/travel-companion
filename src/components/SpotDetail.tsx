@@ -20,6 +20,8 @@ function packReview(pros: string, cons: string): string {
   return p || c ? JSON.stringify({ pros: p, cons: c }) : ''
 }
 
+const STAR_PATH = 'M12 2.7c.43 0 .82.25 1.01.64l2.08 4.22 4.66.68c.44.06.8.37.94.79.14.42.02.88-.3 1.19l-3.37 3.29.8 4.65c.08.44-.1.88-.46 1.14-.36.26-.82.3-1.21.1L12 17.2l-4.15 2.2c-.39.2-.85.16-1.21-.1-.36-.26-.54-.7-.46-1.14l.8-4.65-3.37-3.29c-.32-.31-.44-.77-.3-1.19.14-.42.5-.73.94-.79l4.66-.68 2.08-4.22c.19-.39.58-.64 1.01-.64Z'
+
 export default function SpotDetail({ name, city, onClose, onSaved }: { name: string; city: string; onClose: () => void; onSaved?: () => void }) {
   const spot = (city ? city + ' ' : '') + name
   const mapUrl = `https://uri.amap.com/search?keyword=${encodeURIComponent(spot)}`
@@ -109,10 +111,12 @@ export default function SpotDetail({ name, city, onClose, onSaved }: { name: str
 
       {/* 评分 */}
       <div className="mt-5" style={{ fontSize: '12px', color: 'var(--color-ink-faint)', marginBottom: '4px' }}>评分</div>
-      <div style={{ display: 'flex', gap: '4px' }}>
+      <div className="rating-stars" role="group" aria-label="景点评分">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} onClick={() => setRating(n)} aria-label={`${n} 星`} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', lineHeight: 1, color: n <= rating ? '#E0B23C' : 'var(--color-line)' }}>
-            ★
+          <button key={n} onClick={() => setRating(n)} aria-label={`${n} 星`} aria-pressed={n <= rating} className={`rating-star-button rating-star-${n}`}>
+            <svg className="rating-star-glyph" viewBox="0 0 24 24" aria-hidden="true">
+              <path d={STAR_PATH} />
+            </svg>
           </button>
         ))}
       </div>
