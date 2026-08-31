@@ -179,6 +179,75 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .plan-primary:hover { background: #171612; transform: translateY(-1px); }
 .plan-primary-mark { display: inline-flex; gap: 3px; }
 .plan-primary-mark span { width: 6px; height: 6px; border-radius: 50%; }
+.rating-stars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 42px;
+}
+.rating-star-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-line);
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(.22, 1.4, .36, 1), color 180ms ease;
+}
+.rating-star-button:hover { color: #D8A52E; transform: translateY(-3px) rotate(-4deg) scale(1.08); }
+.rating-star-button:active { transform: translateY(1px) scale(.9); }
+.rating-star-button[aria-pressed="true"] { color: #E0B23C; }
+.rating-star-glyph {
+  width: 31px;
+  height: 31px;
+  overflow: visible;
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+  transform: rotate(-7deg);
+  transition: transform 220ms cubic-bezier(.22, 1.4, .36, 1), fill 180ms ease, stroke-width 180ms ease;
+}
+.rating-star-button:nth-child(2) .rating-star-glyph { width: 28px; height: 28px; transform: rotate(4deg); }
+.rating-star-button:nth-child(3) .rating-star-glyph { width: 33px; height: 33px; transform: rotate(-2deg); }
+.rating-star-button:nth-child(4) .rating-star-glyph { width: 29px; height: 29px; transform: rotate(7deg); }
+.rating-star-button:nth-child(5) .rating-star-glyph { width: 31px; height: 31px; transform: rotate(-5deg); }
+.rating-star-button[aria-pressed="true"] .rating-star-glyph { fill: currentColor; stroke-width: 1; }
+.rating-star-button:hover .rating-star-glyph { transform: rotate(0deg) scale(1.08); }
+@media (prefers-reduced-motion: reduce) {
+  .rating-star-button,
+  .rating-star-glyph { transition: none; }
+}
+.review-tab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+.review-tab-button:hover { transform: translateY(-1px); }
+.review-tab-button:active { transform: translateY(1px) scale(.98); }
+.review-tab-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+.review-tab-button:hover .review-tab-icon { transform: rotate(-5deg) scale(1.08); }
+@media (prefers-reduced-motion: reduce) {
+  .review-tab-button,
+  .review-tab-icon { transition: none; }
+}
 .planner-status {
   margin-top: 24px;
   padding-top: 16px;
