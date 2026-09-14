@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { Itinerary, Item, Period, PrepNote, Highlight, WeatherAlertNotice } from '../types/itinerary'
 import SpotDetail from './SpotDetail'
+import WeatherScene from './WeatherScene'
+import { forecastableDates, itineraryWeatherCity } from '../../shared/weather'
 import { fetchWeather, type DayWeather } from '../lib/weather'
 import { phenomena, type Phenomenon } from '../lib/phenomena'
 
@@ -63,7 +65,6 @@ function PrepCard({ notes }: { notes: PrepNote[] }) {
     </section>
   )
 }
-const CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五']
 const HAS_MAP: Item['type'][] = ['sight', 'food', 'activity']
 
 function blankItem(): Item {
@@ -224,21 +225,18 @@ export default function ResultView({
   const [markSpot, setMarkSpot] = useState<string | null>(null)
   const [weather, setWeather] = useState<Record<string, DayWeather>>({})
 
-  // 拉那几天的真实天气预报（Open-Meteo，免 key）；超出预报窗口的日期拿不到，自动略过。
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const today = new Date().toLocaleDateString('en-CA')
   useEffect(() => {
-    const dates = data.days.map((d) => d.date).filter(Boolean)
-    if (!city || dates.length === 0) {
-      setWeather({})
-      return
-    }
     let alive = true
-    fetchWeather(city, dates)
-      .then((w) => alive && setWeather(w))
-      .catch(() => alive && setWeather({}))
-    return () => {
-      alive = false
-    }
-  }, [city, data.days.map((d) => d.date).join(',')])
+    setWeather({}); setWeatherLoading(true)
+    Promise.all(data.days.map(async (day) => {
+      const target = itineraryWeatherCity(city, day)
+      if (!target || !day.date) return {}
+      try { return await fetchWeather(target, [day.date]) } catch { return {} }
+    })).then(rows => { if (alive) { setWeather(Object.assign({}, ...rows)); setWeatherLoading(false) } })
+    return () => { alive = false }
+  }, [city, JSON.stringify(data.days)])
 
   const mutDays = (d: number, fn: (day: Itinerary['days'][number]) => Itinerary['days'][number]) =>
     onChange?.({ ...data, days: data.days.map((day, x) => (x === d ? fn(day) : day)) })
@@ -258,7 +256,7 @@ export default function ResultView({
 
   return (
     <div>
-      <blockquote className="my-8 pl-5 font-serif" style={{ borderLeft: '2px solid var(--color-qing)', fontSize: '17px', lineHeight: 2, color: 'var(--color-ink)', margin: '2rem 0' }}>
+      <blockquote style={{ fontFamily: '-apple-system, "PingFang SC", system-ui, sans-serif', fontSize: '14px', lineHeight: 1.75, color: 'var(--color-ink-soft)', margin: '20px 0', overflowWrap: 'anywhere' }}>
         {data.greeting}
       </blockquote>
 
@@ -266,22 +264,27 @@ export default function ResultView({
       {data.prep && data.prep.length > 0 && <PrepCard notes={data.prep} />}
       {data.highlights && data.highlights.length > 0 && <HighlightCard list={data.highlights} />}
 
-      {data.days.map((day, d) => (
+      {data.days.map((day, d) => {
+        const dayWeather = day.date ? weather[day.date] : undefined
+        return (
         <section key={d} id={`trip-day-${day.dayIndex}`} className="mb-10 trip-day-section">
-          <div className="flex items-baseline gap-3 pb-2.5 mb-1" style={{ borderBottom: '1px solid var(--color-line)' }}>
-            <span style={{ fontSize: '10.5px', letterSpacing: '0.22em', color: 'var(--color-ink-faint)' }}>DAY</span>
-            <span className="font-serif" style={{ fontSize: '28px', lineHeight: 1, color: 'var(--color-ink)' }}>{CN[day.dayIndex] || day.dayIndex}</span>
-            {day.date && <span style={{ fontSize: '11.5px', color: 'var(--color-ink-faint)' }}>{day.date}</span>}
-            {day.date && weather[day.date] && (
-              <span title={`降水概率 ${weather[day.date].pop}%`} style={{ fontSize: '11.5px', color: 'var(--color-qing)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                {weather[day.date].icon} {weather[day.date].text} {weather[day.date].tMin}~{weather[day.date].tMax}°
-                {weather[day.date].pop >= 40 && <span style={{ color: 'var(--color-seal)' }}>· 易雨</span>}
-              </span>
+          <div className={`day-weather-header${dayWeather ? ' has-weather' : ''}`}>
+            {dayWeather && <WeatherScene weather={dayWeather} />}
+            <div className="day-weather-identity">
+              <span className="day-label">DAY {String(day.dayIndex).padStart(2, '0')}</span>
+              {day.date && <span className="day-date">{day.date}</span>}
+            </div>
+            {!dayWeather && <div className="day-weather-reading"><small>{!day.date ? '出发日期未定' : !forecastableDates([day.date], today).length ? '该日期暂无预报' : !(itineraryWeatherCity(city, day)) ? '当天城市暂未识别' : weatherLoading ? '天气查询中…' : '暂未获取天气'}</small></div>}
+            {dayWeather && (
+              <div className="day-weather-reading" title={`降水概率 ${dayWeather.pop}% · 最大风速 ${dayWeather.windMax}km/h`}>
+                <span>{itineraryWeatherCity(city, day)} · {dayWeather.text}</span>
+                <small>{dayWeather.tMin}° — {dayWeather.tMax}°</small>
+              </div>
             )}
             {editing ? (
-              <input value={day.theme} onChange={(e) => setTheme(d, e.target.value)} className="font-serif ml-auto" style={{ ...edInput, fontSize: '15px', color: 'var(--color-ink-soft)', textAlign: 'right', width: '150px' }} />
+              <input value={day.theme} onChange={(e) => setTheme(d, e.target.value)} className="font-serif day-weather-theme" style={{ ...edInput }} />
             ) : (
-              <span className="font-serif ml-auto" style={{ fontSize: '15px', color: 'var(--color-ink-soft)' }}>{day.theme}</span>
+              <span className="font-serif day-weather-theme">{day.theme}</span>
             )}
           </div>
           {day.segments.map((seg, s) => (
@@ -297,9 +300,9 @@ export default function ResultView({
           ))}
           {day.date && phByDate[day.date] && phByDate[day.date].length > 0 && <DayPhenomena list={phByDate[day.date]} />}
         </section>
-      ))}
+      )})}
 
-      <div className="font-serif" style={{ fontSize: '15px', lineHeight: 1.95, color: 'var(--color-ink-soft)' }}>{data.closing}</div>
+      <div style={{ fontFamily: '-apple-system, "PingFang SC", system-ui, sans-serif', fontSize: '14px', lineHeight: 1.75, color: 'var(--color-ink-soft)', overflowWrap: 'anywhere' }}>{data.closing}</div>
       <div className="mt-6" style={{ fontSize: '11px', lineHeight: 1.7, color: 'var(--color-ink-faint)' }}>{data.disclaimer}</div>
 
       {markSpot && <SpotDetail name={markSpot} city={city} onClose={() => setMarkSpot(null)} onSaved={onCheckin} />}

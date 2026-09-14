@@ -3,6 +3,7 @@ import { toPng } from 'html-to-image'
 import ResultView from './components/ResultView'
 import AuthBar from './components/AuthBar'
 import PlanForm from './components/PlanForm'
+import ImportTrip from './components/ImportTrip'
 import SavedTrips from './components/SavedTrips'
 import CurrentCity from './components/CurrentCity'
 import Ledger from './components/Ledger'
@@ -21,6 +22,9 @@ export default function App() {
   const [count, setCount] = useState<number | null>(null)
   const [checkins, setCheckins] = useState(0)
   const [saving, setSaving] = useState(false)
+  const savedPlan = useRef<typeof data | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState('')
   const [note, setNote] = useState('')
   const [view, setView] = useState<'plan' | 'saved' | 'ledger'>('plan')
   const [editing, setEditing] = useState(false)
@@ -31,6 +35,8 @@ export default function App() {
   const resultRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
+    savedPlan.current = null
+    setHistoryError('')
     setTrips([])
     setData(kyotoMock)
     setGenerated(false)
@@ -52,28 +58,35 @@ export default function App() {
 
   const g = growth(checkins)
 
-  const onSave = async () => {
+  const onSave = async (plan = data) => {
+    if (!session || savedPlan.current === plan) return
     setSaving(true)
     setNote('')
     try {
-      await saveItinerary(data)
-      setNote('已收藏到云端')
-      const rows = await listMyItineraries()
-      setCount(rows.length)
+      await saveItinerary(plan)
+      savedPlan.current = plan
+      setNote('已保存到我的行程')
+      setCount(value => (value ?? 0) + 1)
     } catch (e) {
-      setNote('收藏失败：' + (e as Error).message)
+      setNote('保存失败，可点击保存重试：' + (e as Error).message)
     } finally {
       setSaving(false)
     }
   }
 
   const openSaved = async () => {
-    try {
-      setTrips(await listMyItineraries())
-    } catch {
-      setTrips([])
-    }
     setView('saved')
+    setHistoryLoading(true)
+    setHistoryError('')
+    try {
+      const rows = await listMyItineraries()
+      setTrips(rows)
+      setCount(rows.length)
+    } catch (error) {
+      setHistoryError((error as Error).message)
+    } finally {
+      setHistoryLoading(false)
+    }
   }
 
   const exportImage = async () => {
@@ -88,6 +101,7 @@ export default function App() {
   const showResult = (it: typeof data) => {
     setData(it)
     setGenerated(true)
+    void onSave(it)
     if (window.matchMedia('(max-width: 820px)').matches) {
       window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
     }
@@ -115,6 +129,7 @@ export default function App() {
           </span>
         </button>
         <div className="topbar-actions">
+          {session && <button onClick={openSaved} className="toolbar-button" disabled={historyLoading}><IcoScroll /> 我的行程</button>}
           <CurrentCity />
           <AuthBar />
         </div>
@@ -124,7 +139,12 @@ export default function App() {
         <main key={'library:' + (session?.user.id || 'guest')} className="library-view">
           <SavedTrips
             trips={trips}
+            loading={historyLoading}
+            error={historyError}
+            onRetry={openSaved}
             onOpen={(it) => {
+              savedPlan.current = it
+              setNote('')
               setData(it)
               setGenerated(true)
               setView('plan')
@@ -151,6 +171,7 @@ export default function App() {
               onResult={showResult}
               onReset={() => setGenerated(false)}
             />
+            {session && <ImportTrip onResult={showResult} />}
             <div className="planner-status">
               丸丸 Lv.{g.lv} · {g.name}
               {session && checkins > 0 ? ` · 打卡 ${checkins} 处` : ''}
@@ -201,8 +222,8 @@ export default function App() {
                         <button onClick={() => setView('ledger')} className="toolbar-button">
                           <IcoCoin /> 账本
                         </button>
-                        <button onClick={onSave} disabled={saving} className="toolbar-button emphasized">
-                          {saving ? '收藏中…' : '收藏此程'}
+                        <button onClick={() => { void onSave() }} disabled={saving || savedPlan.current === data} className="toolbar-button emphasized">
+                          {saving ? '保存中…' : savedPlan.current === data ? '已保存' : '保存行程'}
                         </button>
                       </>
                     )}

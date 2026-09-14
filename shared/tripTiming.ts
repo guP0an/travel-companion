@@ -20,7 +20,9 @@ export function tripTiming(description: string, answer = '', openEnded = false, 
   const numerals: Record<string, number> = { 一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10 }
   const count = (s: string) => /^\d+$/.test(s) ? Number(s) : s.includes('十') ? (numerals[s.split('十')[0]] || 1) * 10 + (numerals[s.split('十')[1]] || 0) : numerals[s]
   const durations = [...`${description} ${answer}`.matchAll(/([0-9]+|[一二两三四五六七八九十]+)\s*(?:天|日游)/g)].map(m => count(m[1]))
-  let days = durations.at(-1)
+  // A bare number in the follow-up field means days, never a number in the destination.
+  const numericAnswer = answer.trim().normalize('NFKC')
+  let days = /^\d+$/.test(numericAnswer) ? Number(numericAnswer) : durations.at(-1)
   if (dates.length >= 2) {
     let end = dates[1].date
     // Only infer a year boundary for a December-to-January trip.
@@ -28,7 +30,7 @@ export function tripTiming(description: string, answer = '', openEnded = false, 
       end = new Date(Date.UTC(dates[0].date.getUTCFullYear()+1,0,end.getUTCDate()))
     }
     const rangeDays = Math.round((end.getTime() - dates[0].date.getTime()) / DAY) + 1
-    if (rangeDays < 1 || (days && days !== rangeDays)) return { departureDate, question:'日期和天数似乎有冲突，请修改描述，确认这次的起止日期。' }
+    if (rangeDays < 1 || (days !== undefined && days !== rangeDays)) return { departureDate, question:'日期和天数似乎有冲突，请修改描述，确认这次的起止日期。' }
     days = rangeDays
   }
   if (days !== undefined) {
@@ -37,5 +39,5 @@ export function tripTiming(description: string, answer = '', openEnded = false, 
   }
   const undecided = openEnded || /(?:结束|返程|回程|回去|回来|归期|行程)?(?:日期|时间)?(?:暂时|还|尚)?(?:没定|未定|不确定)|暂时没有结束日期|还没想好|没想好|不知道|不确定/.test(answer || description)
   if (undecided) return { days: 3, departureDate, tentative: true }
-  return { departureDate, question: departureDate ? '准备哪天结束，或一共玩几天？还没定也没关系。' : '准备玩几天，或哪天出发、哪天结束？结束日期还没定也可以。' }
+  return { departureDate, question: departureDate ? '准备哪天结束？' : '这次准备玩多久？' }
 }

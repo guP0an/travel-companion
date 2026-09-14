@@ -20,3 +20,20 @@ test('dates determine inclusive duration; missing end dates can remain undecided
   assert.equal(timing('9.25去云南','还没想好').tentative,true)
   assert.equal(timing('9.25去云南','不知道').tentative,true)
 })
+
+test('bare follow-up numbers are day counts without interpreting destination numbers', () => {
+  for (const answer of ['3', ' 3 ', '３', '3天', '玩3天']) {
+    assert.equal(timing('中秋 去云南 目前主要是昆明和大理', answer).days, 3)
+  }
+  assert.equal(timing('去云南', '1').days, 1)
+  assert.equal(timing('去云南', '15').days, 15)
+  for (const answer of ['0', '16', '-1', '3.5']) {
+    assert.equal(timing('去云南', answer).days, undefined)
+    assert.ok(timing('去云南', answer).question)
+  }
+  assert.equal(timing('318川藏线').days, undefined)
+  assert.equal(timing('9月25日出发', '3').departureDate, '2026-09-25')
+  assert.equal(timing('9.25到9.27', '3').days, 3)
+  assert.ok(timing('9.25到9.27', '4').question)
+  assert.ok(timing('9.25到9.27', '0').question)
+})

@@ -13,7 +13,6 @@ const TYPE_LABEL: Record<string, string> = {
   other: '其他',
 }
 
-const DANGO = ['#3E9E9E', '#E68A3C', '#DB6A86', '#7FA85C', '#E0B23C', '#8E7BC4']
 
 const PACE = [
   { v: 'packed', label: '紧凑' },
@@ -35,6 +34,9 @@ export default function PlanForm({
   const [destination, setDestination] = useState('')
   const [timingQuestion, setTimingQuestion] = useState('')
   const [timingAnswer, setTimingAnswer] = useState('')
+  const [departure, setDeparture] = useState('')
+  const [askDeparture, setAskDeparture] = useState(false)
+  const [dateUndecided, setDateUndecided] = useState(false)
   const [timingSummary, setTimingSummary] = useState('')
   const [pace, setPace] = useState<PlanInput['pace']>('leisurely')
   const [busy, setBusy] = useState(false)
@@ -188,6 +190,7 @@ export default function PlanForm({
 
   const go = async (openEnded = false) => {
     if (busy) return
+    setErr('')
     const ticketText = bookings.length
       ? bookings
           .map((b) => `【${b.title}】` + Object.entries(b.fields).map(([k, v]) => `${k}:${v}`).join('，'))
@@ -217,6 +220,11 @@ export default function PlanForm({
       setTimingSummary('')
       return
     }
+    if (!timing.departureDate && !departure && !dateUndecided) {
+      setTimingQuestion(''); setAskDeparture(true); return
+    }
+    timing.departureDate = departure || timing.departureDate
+    setAskDeparture(false)
     setTimingQuestion('')
     setTimingSummary(timing.tentative ? '结束日期未定 · 先安排前 3 天，之后可以继续补充' : `${timing.departureDate ? timing.departureDate + ' 出发 · ' : ''}共 ${timing.days} 天`)
     setBusy(true)
@@ -236,7 +244,7 @@ export default function PlanForm({
       <textarea
         id="planner-input"
         value={destination}
-        onChange={(e) => { setDestination(e.target.value); setTimingAnswer(''); setTimingQuestion(''); setTimingSummary('') }}
+        onChange={(e) => { setDestination(e.target.value); setDeparture(''); setDateUndecided(false); setAskDeparture(false); setTimingAnswer(''); setTimingQuestion(''); setTimingSummary(''); setErr('') }}
         placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : '告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…'}
         rows={1}
         className="font-serif"
@@ -244,12 +252,20 @@ export default function PlanForm({
       />
 
       {timingQuestion && <div className="plan-timing-question" role="group" aria-label="补充行程时间">
-        <p role="status">{timingQuestion}</p>
-        <input aria-label="结束日期或旅行天数" value={timingAnswer} onChange={e => setTimingAnswer(e.target.value)} placeholder="例如：10月2日结束，或玩8天" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void go() } }} />
+        <p className="plan-timing-title" role="status">{timingQuestion}</p>
+        <p id="timing-hint" className="plan-timing-hint">填天数或起止日期，没定也可以。</p>
+        <input aria-label="结束日期或旅行天数" aria-describedby="timing-hint" value={timingAnswer} onChange={e => { setTimingAnswer(e.target.value); setErr('') }} placeholder="例如：玩 8 天，或 10月2日结束" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void go() } }} />
         <div>
-          <button type="button" onClick={() => { void go() }} disabled={busy || !timingAnswer.trim()}>补充好了，开始规划</button>
-          <button type="button" onClick={() => { setTimingAnswer('结束日期未定'); void go(true) }} disabled={busy}>暂时没定 · 先排3天</button>
+          <button type="button" onClick={() => { void go() }} className="plan-timing-submit" disabled={busy || !timingAnswer.trim()}>开始规划</button>
+          <button type="button" onClick={() => { setTimingAnswer('结束日期未定'); void go(true) }} className="plan-timing-skip" disabled={busy}>还没定，先排 3 天</button>
         </div>
+      </div>}
+      {askDeparture && <div className="plan-timing-question" role="group" aria-label="确认出发日期">
+        <p className="plan-timing-title">准备哪天出发？</p>
+        <p className="plan-timing-hint">确认日期后，才能查询每天的天气。</p>
+        <input type="date" aria-label="出发日期" value={departure} disabled={dateUndecided} onChange={e => setDeparture(e.target.value)} />
+        <label><input type="checkbox" checked={dateUndecided} onChange={e => { setDateUndecided(e.target.checked); setDeparture('') }} style={{ width: 'auto', minHeight: 0, marginRight: 8 }} />日期还没定</label>
+        <div><button className="plan-timing-submit" disabled={!departure && !dateUndecided} onClick={() => { void go() }}>开始规划</button></div>
       </div>}
       {timingSummary && <p className="plan-timing-summary" role="status">{timingSummary}</p>}
 
@@ -379,17 +395,15 @@ export default function PlanForm({
 
       {busy ? (
         <MascotThinking />
-      ) : (
+      ) : !timingQuestion && !askDeparture && (
         <button
+          type="button"
           onClick={() => { void go() }}
-          className="plan-primary font-serif"
-          aria-label="让丸丸排一版"
+          className="plan-primary"
+          aria-label={hasPlan ? '更新行程' : '开始规划'}
         >
-          <span className="plan-primary-mark" aria-hidden>
-            {DANGO.map((color) => <span key={color} style={{ background: color }} />)}
-          </span>
-          <span>{hasPlan ? '请丸丸调整行程' : '让丸丸排一版'}</span>
-          <span aria-hidden>→</span>
+          <span>{hasPlan ? '更新行程' : '开始规划'}</span>
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>
         </button>
       )}
       {err && <div className="mt-2" style={{ fontSize: '12px', color: 'var(--color-seal)' }}>{err}</div>}

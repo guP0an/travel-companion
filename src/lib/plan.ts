@@ -80,3 +80,5 @@ export async function generatePlan(input: PlanInput): Promise<Itinerary> {
   const data = await aiRequest({ op: 'plan', ...input })
   return data as Itinerary
 }
+
+export const importPlan = (text: string): Promise<Itinerary> => aiRequest({ op: 'import', text })

@@ -135,7 +135,7 @@ export async function createApp({ env = process.env, dbPath = env.DATABASE_PATH 
           target = resolve(root, 'index.html')
         }
         if (!existsSync(target)) fail(503, '前端尚未构建，请先运行 pnpm build')
-        const types = { '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.jpg':'image/jpeg', '.woff2':'font/woff2' }
+        const types = { '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.mjs':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.jpg':'image/jpeg', '.woff2':'font/woff2' }
         res.setHeader('Content-Type', types[extname(target)] || 'application/octet-stream')
         res.setHeader('Cache-Control', path.startsWith('/assets/') ? 'public,max-age=31536000,immutable' : 'no-cache')
         res.end(req.method === 'HEAD' ? undefined : readFileSync(target)); return

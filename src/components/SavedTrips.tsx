@@ -9,10 +9,16 @@ const PACE_LABEL: Record<string, string> = {
 
 export default function SavedTrips({
   trips,
+  loading,
+  error,
+  onRetry,
   onOpen,
   onBack,
 }: {
   trips: SavedItinerary[]
+  loading: boolean
+  error: string
+  onRetry: () => void
   onOpen: (it: Itinerary) => void
   onBack: () => void
 }) {
@@ -30,13 +36,15 @@ export default function SavedTrips({
         </button>
       </div>
 
-      {trips.length === 0 && (
+      {loading && <p role="status">正在读取行程…</p>}
+      {error && <p role="alert">{error} <button className="toolbar-button" onClick={onRetry}>重试</button></p>}
+      {!loading && !error && trips.length === 0 && (
         <div style={{ fontSize: '13px', color: 'var(--color-ink-faint)', padding: '2rem 0', textAlign: 'center' }}>
-          还没有收藏的行程～ 先让丸丸排一版吧
+          还没有记录。生成的行程会自动保存在这里。
         </div>
       )}
 
-      {trips.map((t) => (
+      {!loading && !error && trips.map((t) => (
         <button
           key={t.id}
           onClick={() => onOpen(t.plan)}
