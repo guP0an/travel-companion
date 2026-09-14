@@ -157,7 +157,7 @@ export default function App() {
               <div className="itinerary-empty">
                 <div className="section-eyebrow">YOUR TRIP</div>
                 <div className="itinerary-empty-body">
-                  <Mascot size={62} hop />
+                  <Mascot size={112} hop />
                   <h2 className="font-serif">{session ? '还没有正在规划的行程' : '你的行程会在这里展开'}</h2>
                   <p>
                     {session
