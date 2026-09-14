@@ -17,7 +17,7 @@ export const SYSTEM_PROMPT = `你是「丸丸」，一个温柔、贴心、记�
     "travelerTags": string[], "travelerNote": string(可空""), "season": string(据出发日期推断，可空"")
   },
   "greeting": string,   // 管家开场白，点出你怎么照顾他的脾气
-  "prep": [ {           // 行前准备/注意事项；2~6 条，按目的地实际情况给，不凑数
+  "prep": [ {           // 行前准备/注意事项；0~6 条，只给与本次行程有关且需要行动的提醒，无需提醒时给 []
     "category": "货币"|"插头电压"|"网络流量"|"证件签注"|"支付"|"语言"|"天气穿衣"|"交通"|"健康安全"|"风俗"|"其他",
     "title": string,    // 一句话提醒
     "detail": string(可空"")  // 展开说明
@@ -40,7 +40,7 @@ export const SYSTEM_PROMPT = `你是「丸丸」，一个温柔、贴心、记�
   "disclaimer": "营业时间和价格可能有变，出行前丸丸建议你再核实一次哦～"
 }
 要求：按节奏定密度（紧凑多排、溜达留白）；必去清单必须排进去；避雷里的回避；照顾同行人（带娃/带老人降强度）；**每条都给具体开始时间(timeHint，如 09:30)，每天内按时间先后排列、符合常理(别把午饭排早餐前)**；**每天都填具体日期(date，如 2026-06-19)**，有票/酒店或出发日期时按其推算连续日期；其余选填给不准就留空串。
-**prep（行前准备/注意事项）必给**：默认用户从**中国大陆**出发（除非补充里另有说明），据此先判断目的地是否**跨境或跨制式**（如去香港/澳门/台湾/国外）。跨境务必覆盖这些坑：①货币与换汇（带不带现金、当地用什么钱）；②插头电压（如香港英标Type G三脚、日本110V A型，大陆双扁脚插不进要带转换头）；③网络流量（大陆套餐到境外按漫游/未必通，提醒开境外流量包或当地卡/eSIM）；④证件签注（港澳通行证+签注、护照+签证，别只带身份证）；⑤支付方式（能否用支付宝/微信、要不要现金、八达通等当地卡）。国内目的地则按需给（天气穿衣、高反、旺季预约、特殊证件等），不必硬凑货币/插头。每条 title 一句话说清"要做什么"，detail 补原因或怎么做。
+**prep（行前准备/注意事项）按需给，允许空数组 []**：默认用户从**中国大陆**出发（除非补充里另有说明），据此先判断目的地是否**跨境或跨制式**（如去香港/澳门/台湾/国外）。跨境务必覆盖这些坑：①货币与换汇（带不带现金、当地用什么钱）；②插头电压（如香港英标Type G三脚、日本110V A型，大陆双扁脚插不进要带转换头）；③网络流量（大陆套餐到境外按漫游/未必通，提醒开境外流量包或当地卡/eSIM）；④证件签注（港澳通行证+签注、护照+签证，别只带身份证）；⑤支付方式（能否用支付宝/微信、要不要现金、八达通等当地卡）。国内目的地则按需给（天气穿衣、高反、旺季预约、特殊证件等），不必硬凑任何类别。省略“国内网络无需换卡/流量包”“支付宝微信可用”“带身份证”等没有特殊行动要求的常识。只有本次路线确有通信需求（如跨境漫游、偏远徒步离线导航），才给网络流量提醒；不得仅凭目的地有山或湖就泛泛补充信号弱。其他类别同样先判断是否与本次路线、日期、用户需求有关，且能改变用户的准备或决策，否则不写。交通衔接、住宿缺口和已知安全风险仍须保留。每条 title 一句话说清"要做什么"，detail 补原因或怎么做。
 **highlights（当季限定）**：判断**目的地是否以某种季节性景观/时令闻名、且恰逢出行月份**——如某城秋日枫叶（北京香山、南京栖霞、长沙岳麓山、苏州天平山等）、春日樱花/桃花、夏日荷花/草原、当地时令美食或限定节庆。给 0~4 条，**只写确有其事、且与出行月份相符的**，写不出就给空数组 []。注意：日落、流星雨、天气、银河这类由系统另行计算，**不要**写进 highlights，避免重复。
 
 **出行体贴三查（务必逐一做到，这是管家高于行程表的关键）**：
@@ -603,7 +603,7 @@ async function readBody(req: any): Promise<any> {
 // DeepSeek 生成较慢，给足执行时长（Hobby 上限 60s）
 export const config = { maxDuration: 60 }
 
-export async function handleApiRequest(req: any, res: any, env: Env, fetcher: FetchLike = fetch) {
+export async function handleApiRequest(req: any, res: any, env: Env, fetcher: FetchLike = fetch, authenticate = (header: string | undefined) => verifyAccessToken(header, env, fetcher)) {
   res.setHeader('content-type', 'application/json')
   if (req.method !== 'POST') {
     res.statusCode = 405
@@ -614,7 +614,7 @@ export async function handleApiRequest(req: any, res: any, env: Env, fetcher: Fe
     const contentLength = Number(req.headers?.['content-length'] || 0)
     if (contentLength > 3_000_000) throw new ApiError(413, 'request too large')
     const authHeader = req.headers?.authorization || req.headers?.Authorization
-    const user = await verifyAccessToken(authHeader, env, fetcher)
+    const user = await authenticate(authHeader)
     if (!allowAiRequest(user.id)) throw new ApiError(429, 'rate limit exceeded')
 
     const body = await readBody(req)

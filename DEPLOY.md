@@ -1,3 +1,5 @@
+> 当前开发分支已改为自建 Node.js＋SQLite 后端。运行、备份和新发布前置条件见 [server/README.md](server/README.md)。下面保留的是旧 Supabase/Vercel 部署资料，不适用于新用户名账号系统；不要据此发布当前分支。
+
 # 部署到 Vercel（让别人也能用）
 
 丸丸前端是纯静态（Vite 打包到 `dist`），DeepSeek 代理是 `api/` 下的 serverless 函数（key 只在服务端）。
@@ -13,7 +15,7 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 - Supabase 四张业务表、RLS、`checkin-photos` 与 `expense-receipts` 存储桶、正式 Site URL 和密码重置回跳均已配置并验证。
 - 当前 Supabase 项目 ref 为 `pdlpiugjluwztvbpaukf`；原有测试行程保留，最新表结构、微信身份表和图片存储策略已补齐。此前误建在其他账号下的 `eqfmzfomeuwwdgwfhoha` 不再用于生产。
 - `/api/ai` 已强制登录并有基础限流；模型返回、天气事实和可选高德事实层均有自动化测试。
-- 手机验证码、手机密码和邮箱三种认证界面已完成；页面会读取 Supabase Auth Settings，Phone Provider 未启用时自动保持邮箱入口。
+- 账户面板使用邮箱注册、密码登录和邮件找回密码；手机号认证界面及开关探测已移除。
 - Supabase Send SMS Hook 与腾讯云 SMS 签名调用已完成；正式开放手机号入口仍需企业短信资质、签名和模板审核。
 - 当前官方灾害天气预警已接入生成链路；配置和风天气 API 后，台风、暴雨等生效预警会覆盖行程顶部并约束 AI 调整安排。
 
@@ -89,14 +91,11 @@ Supabase 负责账号/数据。下面把它发布成一个永久 https 链接。
 3. **升级防刷**：当前已有登录校验和实例内基础限流；扩大内测前改成持久化限流。
 4. **冒烟测试**：登录 → 生成 → 一句话修改 → 收藏 → 导出 PNG → 账本 → 打卡/照片。
 
-### 开通手机号登录
+### 手机号登录（已下线）
 
-1. 在腾讯云完成企业实名认证、短信应用、签名、验证码模板和运营商实名报备；当前国内验证码短信不支持个人资质直接上线。
-2. 把审核通过的腾讯云参数及 `SUPABASE_SMS_HOOK_SECRET` 配到 Vercel Production，Hook 地址为 `https://wanwantrip.online/api/send-sms`。
-3. Supabase → Authentication → Hooks → Send SMS，启用 HTTP Hook，填入上述地址并保存生成的 Hook Secret。
-4. Supabase → Authentication → Providers → Phone 启用 Phone Provider；保持 OTP 最短发送间隔不低于 60 秒，并配置 CAPTCHA、单手机号/IP 频率限制和费用告警。
-5. 无需修改前端：页面探测到 `external.phone=true` 后自动开放“手机验证码 / 手机密码”，并把手机验证码作为默认入口。
-6. 用一个真实测试手机号验证：验证码登录、手机密码注册、手机密码登录、忘记密码、重复发送限制和账号数据隔离。
+手机号注册、登录、短信验证码及找回密码前端流程已移除，页面不再探测 Phone Provider 或显示短信待审核提示。保留服务端 Send SMS Hook；本次不修改 Supabase 线上配置或已有账号数据。
+
+未来重新接入需先核实供应商资质、完成签名和模板审核，再恢复前端流程、配置防刷并进行真实收码验收。仅启用 Phone Provider 不会恢复页面入口。
 
 ### 开通微信三端登录
 

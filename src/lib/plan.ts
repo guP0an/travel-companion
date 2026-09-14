@@ -1,5 +1,5 @@
 import type { Itinerary } from '../types/itinerary'
-import { supabase } from './supabase'
+import { post } from './api'
 
 export interface PlanInput {
   destination: string
@@ -25,18 +25,7 @@ export interface Booking {
 }
 
 async function aiRequest(body: Record<string, unknown>) {
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
-  if (!token) throw new Error('请先登录后再让丸丸规划～')
-
-  const res = await fetch('/api/ai', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  })
-  const dataBody = await res.json()
-  if (!res.ok || dataBody?.ok === false) throw new Error(dataBody?.friendlyMessage || '丸丸这会儿有点忙，稍后再试试～')
-  return dataBody
+  return post<any>('/api/ai', body)
 }
 
 // 票务类型 → 账本分类（对齐 Ledger 的 CATS）

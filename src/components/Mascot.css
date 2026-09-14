@@ -1,0 +1,57 @@
+.wanwan { display: inline-block; flex-shrink: 0; line-height: 0; vertical-align: middle; }
+.wanwan svg, .wanwan img { display: block; overflow: visible; }
+.wanwan-breathe { transform-origin: 50% 92%; animation: wanwan-breathe 4.8s ease-in-out infinite; }
+.wanwan-tilt { transform-origin: 50% 82%; }
+.wanwan-hand { transform-origin: 25% 61%; animation: wanwan-wave 8.6s ease-in-out infinite; }
+.wanwan-eye { animation: wanwan-blink 6.7s ease-in-out infinite; transition: opacity 180ms ease; }
+.wanwan-eye--left { transform-origin: 40% 44.2%; }
+.wanwan-eye--right { transform-origin: 62.7% 47.1%; }
+.wanwan-happy { opacity: 0; transition: opacity 240ms ease; }
+.wanwan-face { transition: transform 450ms ease; }
+.wanwan--thinking .wanwan-tilt { animation: wanwan-think 5.6s ease-in-out infinite; }
+.wanwan--thinking .wanwan-hand { animation-duration: 12s; }
+.wanwan--thinking .wanwan-face { transform: translate(-6px, -8px); }
+@media (hover: hover) {
+  .wanwan--alive:not(.wanwan--thinking):hover .wanwan-eye { opacity: 0; }
+  .wanwan--alive:not(.wanwan--thinking):hover .wanwan-happy { opacity: 1; }
+  .wanwan--alive:hover .wanwan-face { transform: translateY(-8px); }
+}
+.wanwan--alive:active .wanwan-eye { opacity: 0; }
+.wanwan--alive:active .wanwan-happy { opacity: 1; }
+.brand-lockup:focus-visible .wanwan-eye { opacity: 0; }
+.brand-lockup:focus-visible .wanwan-happy { opacity: 1; }
+@keyframes wanwan-breathe {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(-9px) scale(1.012, 1.018); }
+}
+@keyframes wanwan-blink {
+  0%, 42%, 46%, 48%, 52%, 100% { transform: scaleY(1); }
+  44%, 50% { transform: scaleY(.08); }
+}
+@keyframes wanwan-wave {
+  0%, 10%, 36%, 100% { transform: rotate(0deg); }
+  16%, 28% { transform: rotate(11deg); }
+  22%, 33% { transform: rotate(-6deg); }
+}
+@keyframes wanwan-think {
+  0%, 100% { transform: rotate(0deg); }
+  35%, 60% { transform: rotate(-4deg); }
+  80% { transform: rotate(1deg); }
+}
+.wm-stage { position: relative; width: 150px; height: 120px; }
+.wm-body { position: absolute; left: 31px; top: 20px; }
+.wm-dots { position: absolute; right: 14px; top: 0; display: flex; align-items: flex-end; gap: 7px; }
+.wm-dots i { border-radius: 50%; background: var(--color-qing); display: block; animation: wm-dot 1.8s ease-in-out infinite; }
+.wm-dots i:nth-child(1) { width: 7px; height: 7px; }
+.wm-dots i:nth-child(2) { width: 9px; height: 9px; animation-delay: .2s; }
+.wm-dots i:nth-child(3) { width: 11px; height: 11px; animation-delay: .4s; }
+@keyframes wm-dot {
+  0%, 70%, 100% { opacity: .3; transform: translateY(2px); }
+  35% { opacity: 1; transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wanwan *, .wm-dots i { animation: none !important; transition: none !important; }
+}
+@media print {
+  .wanwan *, .wm-dots i { animation: none !important; transition: none !important; }
+}

@@ -1,38 +1,42 @@
-// 原创吉祥物「丸丸」—— 一颗可爱的丸子（团子/麻薯），顶上冒青芽，
-// 大眼带高光、朱砂腮红、右眼眼尾一颗泪痣。墨线 + 青 + 朱砂，融进宣纸水墨调性。
-// 不使用任何受版权保护的角色形象。
+import { useId } from 'react'
+import './Mascot.css'
 
-export function Mascot({ size = 46, hop = false }: { size?: number; hop?: boolean }) {
+// 保留原画质感，仅让分层部件运动；hop=false 用于静态分享图。
+export function Mascot({ size = 46, hop = false, thinking = false }: { size?: number; hop?: boolean; thinking?: boolean }) {
+  const id = useId().replace(/:/g, '')
+  const original = `${import.meta.env.BASE_URL}mascot/wanwan.png`
+  const body = `${import.meta.env.BASE_URL}mascot/wanwan-body.png`
   return (
-    <span className={hop ? 'wm-hop' : undefined} style={{ display: 'inline-block', lineHeight: 0 }}>
-    <svg viewBox="0 0 100 100" width={size} height={size} aria-label="丸丸">
-      {/* 顶上小青芽 */}
-      <path d="M50 23 V12" fill="none" stroke="var(--color-qing)" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M50 15 q-8-4-11 2 q6 5 11 0 z" fill="var(--color-qing)" />
-      <path d="M50 17 q8-4 11 2 q-6 5 -11 0 z" fill="var(--color-qing)" opacity="0.78" />
-      {/* 丸子身体 */}
-      <path
-        d="M50 23 C 28 23, 17 39, 17 58 C 17 78, 33 90, 50 90 C 67 90, 83 78, 83 58 C 83 39, 72 23, 50 23 Z"
-        fill="var(--color-paper-2)"
-        stroke="var(--color-ink)"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      {/* 眼睛 + 高光 */}
-      <ellipse cx="37" cy="55" rx="6" ry="7.4" fill="var(--color-ink)" />
-      <ellipse cx="63" cy="55" rx="6" ry="7.4" fill="var(--color-ink)" />
-      <circle cx="39.2" cy="51.6" r="2.1" fill="var(--color-paper-2)" />
-      <circle cx="65.2" cy="51.6" r="2.1" fill="var(--color-paper-2)" />
-      <circle cx="35.4" cy="57.6" r="1" fill="var(--color-paper-2)" opacity="0.8" />
-      <circle cx="61.4" cy="57.6" r="1" fill="var(--color-paper-2)" opacity="0.8" />
-      {/* 泪痣：右眼（你看过去的左侧）眼尾 */}
-      <circle cx="29.5" cy="62" r="1.5" fill="var(--color-ink)" />
-      {/* 腮红 */}
-      <ellipse cx="26" cy="67" rx="5" ry="3" fill="var(--color-seal)" opacity="0.3" />
-      <ellipse cx="74" cy="67" rx="5" ry="3" fill="var(--color-seal)" opacity="0.3" />
-      {/* 微笑 */}
-      <path d="M44 69 q6 5 12 0" fill="none" stroke="var(--color-ink)" strokeWidth="2.4" strokeLinecap="round" />
-    </svg>
+    <span className={`wanwan${hop ? ' wanwan--alive' : ''}${thinking ? ' wanwan--thinking' : ''}`} style={{ width: size, height: size }}>
+      {hop ? (
+        <svg viewBox="0 0 1000 1000" width={size} height={size} role="img" aria-label={thinking ? '丸丸正在思考行程' : '丸丸向你打招呼'}>
+          <defs>
+            <clipPath id={`${id}-hand`}>
+              <path d="M269 533 C248 510 246 457 216 443 C172 423 142 455 138 491 C132 548 160 606 205 630 L262 650 L308 596 Z" />
+            </clipPath>
+            <clipPath id={`${id}-left`}><ellipse cx="400" cy="442" rx="22" ry="26" /></clipPath>
+            <clipPath id={`${id}-right`}><ellipse cx="627" cy="471" rx="21" ry="25" /></clipPath>
+            <clipPath id={`${id}-mouth`}><rect x="476" y="455" width="65" height="36" rx="16" /></clipPath>
+          </defs>
+          <g className="wanwan-breathe">
+            <g className="wanwan-tilt">
+              <image href={body} width="1000" height="1000" />
+              <g className="wanwan-hand">
+                <image href={original} width="1000" height="1000" clipPath={`url(#${id}-hand)`} />
+              </g>
+              <g className="wanwan-face">
+                <g className="wanwan-eye wanwan-eye--left"><image href={original} width="1000" height="1000" clipPath={`url(#${id}-left)`} /></g>
+                <g className="wanwan-eye wanwan-eye--right"><image href={original} width="1000" height="1000" clipPath={`url(#${id}-right)`} /></g>
+                <image href={original} width="1000" height="1000" clipPath={`url(#${id}-mouth)`} />
+                <g className="wanwan-happy" fill="none" stroke="#885c40" strokeWidth="9" strokeLinecap="round">
+                  <path d="M384 444 Q400 424 414 440" />
+                  <path d="M613 470 Q628 451 642 469" />
+                </g>
+              </g>
+            </g>
+          </g>
+        </svg>
+      ) : <img src={original} width={size} height={size} alt="丸丸" />}
     </span>
   )
 }
@@ -52,21 +56,10 @@ export function Dango({ width = 58 }: { width?: number }) {
 export function MascotThinking({ caption = '丸丸正在排…' }: { caption?: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.75rem 0' }}>
-      <style>{`
-        @keyframes wm-bob { 0%,100%{ transform: translateY(0) rotate(-3deg) } 50%{ transform: translateY(-7px) rotate(3deg) } }
-        @keyframes wm-dot { 0%,70%,100%{ opacity:.2; transform: translateY(3px) scale(.8) } 35%{ opacity:1; transform: translateY(0) scale(1) } }
-        .wm-stage{ position:relative; width:150px; height:110px }
-        .wm-body{ position:absolute; left:48px; top:16px }
-        .wm-dots{ position:absolute; right:14px; top:0; display:flex; align-items:flex-end; gap:7px }
-        .wm-dots i{ border-radius:50%; background:var(--color-qing); display:block; animation: wm-dot 1.4s ease-in-out infinite }
-        .wm-dots i:nth-child(1){ width:7px; height:7px }
-        .wm-dots i:nth-child(2){ width:9px; height:9px; animation-delay:.2s }
-        .wm-dots i:nth-child(3){ width:11px; height:11px; animation-delay:.4s }
-      `}</style>
-      <div className="wm-stage">
+      <div className="wm-stage" aria-hidden="true">
         <div className="wm-dots"><i /><i /><i /></div>
         <div className="wm-body">
-          <Mascot size={62} hop />
+          <Mascot size={88} hop thinking />
         </div>
       </div>
       <div className="font-serif" style={{ fontSize: '13.5px', color: 'var(--color-ink-soft)', letterSpacing: '0.12em', marginTop: '2px' }}>

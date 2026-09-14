@@ -31,6 +31,14 @@ export default function App() {
   const resultRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
+    setTrips([])
+    setData(kyotoMock)
+    setGenerated(false)
+    setView('plan')
+    setNote('')
+  }, [session?.user.id])
+
+  useEffect(() => {
     if (!session) {
       setCount(null)
       setCheckins(0)
@@ -113,7 +121,7 @@ export default function App() {
       </header>
 
       {view === 'saved' && (
-        <main className="library-view">
+        <main key={'library:' + (session?.user.id || 'guest')} className="library-view">
           <SavedTrips
             trips={trips}
             onOpen={(it) => {
@@ -126,9 +134,9 @@ export default function App() {
         </main>
       )}
       {view === 'ledger' && (
-        <main className="library-view"><Ledger onBack={() => setView('plan')} /></main>
+        <main key={'library:' + (session?.user.id || 'guest')} className="library-view"><Ledger onBack={() => setView('plan')} /></main>
       )}
-        <main className={`planner-workspace${generated ? ' has-itinerary' : ''}`} hidden={view !== 'plan'}>
+        <main key={'planner:' + (session?.user.id || 'guest')} className={`planner-workspace${generated ? ' has-itinerary' : ''}`} hidden={view !== 'plan'}>
           <aside className="planner-sidebar" ref={plannerRef}>
             <div className="planner-intro">
               <div className="section-eyebrow">AI TRAVEL CONCIERGE</div>
@@ -157,7 +165,7 @@ export default function App() {
               <div className="itinerary-empty">
                 <div className="section-eyebrow">YOUR TRIP</div>
                 <div className="itinerary-empty-body">
-                  <Mascot size={62} hop />
+                  <Mascot size={112} hop />
                   <h2 className="font-serif">{session ? '还没有正在规划的行程' : '你的行程会在这里展开'}</h2>
                   <p>
                     {session

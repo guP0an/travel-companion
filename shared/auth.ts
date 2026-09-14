@@ -1,5 +1,3 @@
-export type AuthMethod = 'phone-otp' | 'phone-password' | 'email'
-
 export function normalizeMainlandPhone(value: string): string | null {
   const digits = value.replace(/\D/g, '')
   if (/^1[3-9]\d{9}$/.test(digits)) return `+86${digits}`

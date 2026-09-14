@@ -14,23 +14,6 @@
   --font-serif: "Songti SC", "STSong", "Noto Serif SC", "STKaiti", Georgia, serif;
 }
 
-/* 丸丸蹦蹦跳跳：挤压→大蹦→落地→小蹦→歇一下，循环 */
-@keyframes wm-hop {
-  0%   { transform: translateY(0) scale(1, 1); }
-  8%   { transform: translateY(0) scale(1.12, 0.88); }
-  30%  { transform: translateY(-15px) scale(0.95, 1.06); }
-  48%  { transform: translateY(0) scale(1.1, 0.9); }
-  62%  { transform: translateY(-7px) scale(0.98, 1.03); }
-  74%  { transform: translateY(0) scale(1.05, 0.95); }
-  82%, 100% { transform: translateY(0) scale(1, 1); }
-}
-.wm-hop {
-  display: inline-block;
-  line-height: 0;
-  transform-origin: 50% 92%;
-  animation: wm-hop 2s ease-in-out infinite;
-}
-
 html, body, #root { height: 100%; }
 * { box-sizing: border-box; }
 body {
@@ -521,7 +504,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   right: 0;
   z-index: 50;
   width: min(390px, calc(100vw - 32px));
-  padding: 20px;
+  padding: 26px;
   border: 1px solid rgba(43, 41, 36, 0.16);
   border-radius: 7px;
   background: var(--color-paper-2);
@@ -540,7 +523,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   font-size: 22px;
   line-height: 1;
 }
-.auth-helper { margin-bottom: 11px; color: var(--color-ink-faint); font-size: 11px; letter-spacing: 0.04em; line-height: 1.6; }
+.auth-helper { margin: 0 0 22px; color: var(--color-ink-soft); font-size: 13px; line-height: 1.7; }
 .auth-wechat-button {
   width: 100%;
   min-height: 42px;
@@ -571,57 +554,33 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 }
 .day-quick-nav, .mobile-action-bar { display: none; }
 
-.auth-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--color-line);
-  margin-bottom: 12px;
+.auth-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.auth-field { display: grid; gap: 7px; min-width: 0; }
+.auth-field > span { color: var(--color-ink-soft); font-size: 12px; }
+.auth-field small { color: var(--color-ink-soft); font-size: 11px; }
+.auth-input {
+  width: 100%; min-width: 0; min-height: 44px;
+  padding: 11px 13px;
+  border: 1px solid var(--color-line); border-radius: 5px;
+  background: var(--color-paper); color: var(--color-ink);
+  font-size: 14px; line-height: 1.5;
+  transition: border-color 150ms, box-shadow 150ms;
 }
-.auth-tabs button {
-  flex: 1;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--color-ink-faint);
-  cursor: pointer;
-  padding: 7px 4px;
-  font-size: 12.5px;
+.auth-input::placeholder { color: var(--color-ink-faint); }
+.auth-input:focus-visible {
+  outline: 1px solid var(--color-qing); outline-offset: 0;
+  border-color: var(--color-qing); box-shadow: 0 0 0 3px rgba(60, 125, 135, 0.08);
 }
-.auth-tabs button.active {
-  border-bottom-color: var(--color-qing);
-  color: var(--color-qing);
+.auth-primary-button {
+  width: 100%; min-height: 44px; padding: 11px 18px;
+  border: 0; border-radius: 5px;
+  background: var(--color-qing); color: var(--color-paper-2);
+  font-size: 14px; cursor: pointer;
 }
-.auth-tabs button:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-.auth-availability {
-  color: var(--color-ink-faint);
-  font-size: 11px;
-  margin: -3px 0 8px;
-}
-.auth-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-.auth-phone-field,
-.auth-code-field {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  border-bottom: 1px solid var(--color-line);
-}
-.auth-phone-field > span {
-  color: var(--color-ink-soft);
-  font-size: 13px;
-  padding-right: 8px;
-}
-.auth-phone-field input,
-.auth-code-field input {
-  flex: 1;
-  border-bottom: 0 !important;
-}
-.auth-code-button,
+.auth-primary-button:hover { filter: brightness(0.94); }
+.auth-primary-button:disabled { opacity: 0.6; cursor: wait; }
+.auth-recovery-code { min-height: 100px; margin-bottom: 18px; overflow-wrap: anywhere; font-family: monospace; }
+
 .auth-text-button,
 .auth-link-button {
   border: 0;
@@ -631,14 +590,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   font-size: 12.5px;
   white-space: nowrap;
 }
-.auth-code-button {
-  color: var(--color-qing);
-  padding: 5px 2px 5px 10px;
-}
-.auth-code-button:disabled {
-  color: var(--color-ink-faint);
-  cursor: default;
-}
 .auth-link-button {
   color: var(--color-ink-faint);
   text-decoration: underline;
@@ -647,9 +598,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .auth-actions {
   display: flex;
   align-items: center;
-  gap: 18px;
+  justify-content: center;
+  gap: 16px;
   flex-wrap: wrap;
-  margin-top: 15px;
+  margin-top: 24px;
 }
 .auth-message {
   color: var(--color-ink-faint);
@@ -716,7 +668,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .weather-alert-source a { color: inherit; }
 
 @media (max-width: 520px) {
-  .auth-fields { grid-template-columns: 1fr; gap: 10px; }
+  .auth-fields { grid-template-columns: 1fr; gap: 14px; }
+  .auth-input { font-size: 16px; }
   .auth-actions { gap: 14px; }
 }
 
@@ -825,3 +778,25 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
     overflow: auto;
   }
 }
+
+.plan-upload-button {
+  display: inline-block;
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px dashed var(--color-qing);
+  background: transparent;
+  color: var(--color-qing);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.plan-upload-button:disabled { opacity: 0.6; cursor: wait; }
+.plan-paste-hint { margin-top: 7px; color: var(--color-ink-faint); font-size: 11px; line-height: 1.6; }
+
+.plan-timing-question { margin: 16px 0; padding: 16px; border: 1px solid var(--color-line); border-radius: 6px; background: var(--color-paper-2); }
+.plan-timing-question p { margin: 0 0 12px; font-size: 13px; line-height: 1.7; color: var(--color-ink-soft); }
+.plan-timing-question input { width: 100%; padding: 9px 0; border: 0; border-bottom: 1px solid var(--color-line); background: transparent; font-size: 14px; }
+.plan-timing-question > div { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.plan-timing-question button { border: 0; padding: 5px 0; background: transparent; color: var(--color-qing); font-size: 12px; cursor: pointer; }
+.plan-timing-question button:disabled { opacity: 0.5; cursor: default; }
+.plan-timing-summary { margin: 14px 0; font-size: 12px; line-height: 1.7; color: var(--color-qing); }

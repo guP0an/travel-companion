@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { tripTiming } from '../../shared/tripTiming'
+import { pastedImage } from '../../shared/clipboard'
 import type { Itinerary } from '../types/itinerary'
 import { generatePlan, revisePlan, extractBookings, extractBookingsFromImage, bookingCategory, parseBookingPrice, type PlanInput, type Booking } from '../lib/plan'
 import { addExpense, expenseExists } from '../lib/db'
@@ -19,16 +21,6 @@ const PACE = [
   { v: 'leisurely', label: '溜达' },
 ] as const
 
-const underline: React.CSSProperties = {
-  border: 'none',
-  borderBottom: '1px solid var(--color-line)',
-  background: 'transparent',
-  padding: '6px 2px',
-  outline: 'none',
-  fontSize: '15px',
-  color: 'var(--color-ink)',
-}
-
 export default function PlanForm({
   onResult,
   current,
@@ -41,12 +33,16 @@ export default function PlanForm({
   onReset?: () => void
 }) {
   const [destination, setDestination] = useState('')
-  const [days, setDays] = useState(3)
+  const [timingQuestion, setTimingQuestion] = useState('')
+  const [timingAnswer, setTimingAnswer] = useState('')
+  const [timingSummary, setTimingSummary] = useState('')
   const [pace, setPace] = useState<PlanInput['pace']>('leisurely')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [ocrText, setOcrText] = useState('')
   const [ocrBusy, setOcrBusy] = useState(false)
+  const readingImage = useRef(false)
+  const fileInput = useRef<HTMLInputElement>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [ledgerMsg, setLedgerMsg] = useState('')
   const [openSet, setOpenSet] = useState<Set<number>>(new Set())
@@ -58,8 +54,6 @@ export default function PlanForm({
     })
 
   const compressForVision = async (file: File): Promise<string> => {
-    if (!file.type.startsWith('image/')) throw new Error('请选择图片文件')
-    if (file.size > 15 * 1024 * 1024) throw new Error('图片太大，请控制在 15MB 以内')
     const url = URL.createObjectURL(file)
     try {
       const image = new Image()
@@ -83,10 +77,11 @@ export default function PlanForm({
     }
   }
 
-  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
+  const readTicketImage = async (f: File) => {
+    if (readingImage.current) return
+    if (!f.type.startsWith('image/')) { setErr('请选择图片文件'); return }
+    if (f.size > 15 * 1024 * 1024) { setErr('图片太大，请控制在 15MB 以内'); return }
+    readingImage.current = true
     setOcrBusy(true)
     setErr('')
     try {
@@ -118,8 +113,23 @@ export default function PlanForm({
     } catch (e) {
       setErr('识别失败：' + (e as Error).message)
     } finally {
+      readingImage.current = false
       setOcrBusy(false)
     }
+  }
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (file) void readTicketImage(file)
+  }
+
+  const onPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const file = pastedImage(event.clipboardData)
+    if (!file) return // Keep normal text paste and unsupported clipboard content untouched.
+    event.preventDefault()
+    if (readingImage.current) { setErr('正在识别上一张截图，请稍候再粘贴'); return }
+    void readTicketImage(file)
   }
 
   // 识别到带价格的票/酒店，直接记入账本（交通/住宿）。未登录或账本未建表则提示。
@@ -176,7 +186,8 @@ export default function PlanForm({
     setBookings((bs) => bs.map((b, i) => (i === bi ? { ...b, title: v } : b)))
   const removeBooking = (bi: number) => setBookings((bs) => bs.filter((_, i) => i !== bi))
 
-  const go = async () => {
+  const go = async (openEnded = false) => {
+    if (busy) return
     const ticketText = bookings.length
       ? bookings
           .map((b) => `【${b.title}】` + Object.entries(b.fields).map(([k, v]) => `${k}:${v}`).join('，'))
@@ -200,10 +211,18 @@ export default function PlanForm({
       setErr('告诉丸丸去哪儿，或传一张票/酒店截图')
       return
     }
+    const timing = tripTiming(destination.trim(), openEnded ? '结束日期未定' : timingAnswer, openEnded)
+    if (!timing.days) {
+      setTimingQuestion(timing.question || '准备玩几天？')
+      setTimingSummary('')
+      return
+    }
+    setTimingQuestion('')
+    setTimingSummary(timing.tentative ? '结束日期未定 · 先安排前 3 天，之后可以继续补充' : `${timing.departureDate ? timing.departureDate + ' 出发 · ' : ''}共 ${timing.days} 天`)
     setBusy(true)
     setErr('')
     try {
-      onResult(await generatePlan({ destination: destination.trim(), days, pace, ticketText }))
+      onResult(await generatePlan({ destination: destination.trim(), days: timing.days, pace, ticketText, departureDate: timing.departureDate, travelerNote: timing.tentative ? '用户结束日期未定，本次仅安排前3天作为暂定行程。不要擅自安排返程、退房或声称第3天旅行结束。未明确出发日期时不要编造具体日期。' : timingAnswer }))
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -212,31 +231,27 @@ export default function PlanForm({
   }
 
   return (
-    <div className="plan-form">
+    <div className="plan-form" onPaste={onPaste}>
       {/* 干净的多行输入（内容自动撑开） */}
       <textarea
         id="planner-input"
         value={destination}
-        onChange={(e) => setDestination(e.target.value)}
+        onChange={(e) => { setDestination(e.target.value); setTimingAnswer(''); setTimingQuestion(''); setTimingSummary('') }}
         placeholder={hasPlan ? '想改就说：6月20号加个夜市、删掉清水寺、第二天换博物馆…' : '告诉丸丸：去哪 · 几个人 · 想玩什么 · 预算…'}
         rows={1}
         className="font-serif"
         style={{ fieldSizing: 'content', width: '100%', minHeight: '28px', border: 'none', borderBottom: '1px solid var(--color-line)', background: 'transparent', outline: 'none', resize: 'none', color: 'var(--color-ink)', fontSize: '15px', lineHeight: 1.8, padding: '6px 2px', display: 'block' } as React.CSSProperties}
       />
 
-      <div className="plan-options-row flex items-center gap-2">
-        <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>玩</span>
-        <input
-          type="number"
-          min={1}
-          max={15}
-          value={days}
-          onChange={(e) => setDays(Math.max(1, Math.min(15, Number(e.target.value) || 1)))}
-          className="font-serif"
-          style={{ ...underline, width: '44px', textAlign: 'center' }}
-        />
-        <span style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>天</span>
-      </div>
+      {timingQuestion && <div className="plan-timing-question" role="group" aria-label="补充行程时间">
+        <p role="status">{timingQuestion}</p>
+        <input aria-label="结束日期或旅行天数" value={timingAnswer} onChange={e => setTimingAnswer(e.target.value)} placeholder="例如：10月2日结束，或玩8天" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void go() } }} />
+        <div>
+          <button type="button" onClick={() => { void go() }} disabled={busy || !timingAnswer.trim()}>补充好了，开始规划</button>
+          <button type="button" onClick={() => { setTimingAnswer('结束日期未定'); void go(true) }} disabled={busy}>暂时没定 · 先排3天</button>
+        </div>
+      </div>}
+      {timingSummary && <p className="plan-timing-summary" role="status">{timingSummary}</p>}
 
       <div className="plan-pace-row flex gap-5">
         {PACE.map((p) => (
@@ -260,19 +275,17 @@ export default function PlanForm({
 
       {/* 上传票务截图，丸丸自己读 */}
       <div className="plan-upload-row">
-        <label
-          style={{
-            display: 'inline-block',
-            fontSize: '13px',
-            color: 'var(--color-qing)',
-            cursor: 'pointer',
-            borderBottom: '1px dashed var(--color-qing)',
-            paddingBottom: '1px',
-          }}
+        <button
+          type="button"
+          className="plan-upload-button"
+          onClick={() => fileInput.current?.click()}
+          disabled={ocrBusy}
+          aria-describedby="ticket-paste-hint"
         >
           {ocrBusy ? '丸丸正在看截图…' : '＋ 上传票务截图，丸丸自己读（选填）'}
-          <input type="file" accept="image/*" onChange={onFile} disabled={ocrBusy} style={{ display: 'none' }} />
-        </label>
+        </button>
+        <input ref={fileInput} type="file" accept="image/*" onChange={onFile} disabled={ocrBusy} hidden />
+        <div id="ticket-paste-hint" className="plan-paste-hint">也可在这里或描述框粘贴截图 · ⌘V / Ctrl+V</div>
         {bookings.length > 0 && (
           <div className="mt-3 flex flex-col gap-2">
             {bookings.map((b, bi) => {
@@ -368,7 +381,7 @@ export default function PlanForm({
         <MascotThinking />
       ) : (
         <button
-          onClick={go}
+          onClick={() => { void go() }}
           className="plan-primary font-serif"
           aria-label="让丸丸排一版"
         >
@@ -386,6 +399,7 @@ export default function PlanForm({
             onClick={() => {
               onReset?.()
               setDestination('')
+              setTimingAnswer(''); setTimingQuestion(''); setTimingSummary('')
               setBookings([])
               setOcrText('')
               setLedgerMsg('')

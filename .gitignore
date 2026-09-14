@@ -22,3 +22,7 @@ vite.config.d.ts
 .vscode/
 .vercel
 project.private.config.json
+
+# 自建后端本地数据及构建
+data/
+build/

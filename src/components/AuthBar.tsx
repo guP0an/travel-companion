@@ -1,387 +1,76 @@
-import { useEffect, useState } from 'react'
-import {
-  friendlyAuthError,
-  getWechatLoginMode,
-  maskAccount,
-  normalizeMainlandPhone,
-  type AuthMethod,
-} from '../../shared/auth'
-import { isPhoneAuthEnabled, supabase } from '../lib/supabase'
-import { useSession } from '../lib/useSession'
+import { useState } from 'react'
+import { authenticate, logout, useSession } from '../lib/useSession'
 
-const underline: React.CSSProperties = {
-  border: 'none',
-  borderBottom: '1px solid var(--color-line)',
-  background: 'transparent',
-  padding: '8px 2px',
-  outline: 'none',
-  fontSize: '14px',
-  color: 'var(--color-ink)',
-  minWidth: 0,
-}
-
-const primaryButton: React.CSSProperties = {
-  background: 'var(--color-qing)',
-  color: 'var(--color-paper-2)',
-  border: 'none',
-  borderRadius: '2px',
-  padding: '8px 20px',
-  fontSize: '13.5px',
-  letterSpacing: '0.08em',
-  cursor: 'pointer',
-}
-
-type ViewMode = 'login' | 'email-reset' | 'update-password'
-type OtpPurpose = 'login' | 'register-password' | 'reset-password'
+type Mode = 'login' | 'register' | 'recover'
 
 export default function AuthBar() {
   const session = useSession()
-  const [method, setMethod] = useState<AuthMethod>('email')
-  const [phoneEnabled, setPhoneEnabled] = useState(false)
-  const [wechatMode, setWechatMode] = useState<'h5' | 'web' | null>(null)
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [pw, setPw] = useState('')
-  const [confirmPw, setConfirmPw] = useState('')
-  const [otp, setOtp] = useState('')
-  const [otpPurpose, setOtpPurpose] = useState<OtpPurpose>('login')
-  const [countdown, setCountdown] = useState(0)
-  const [msg, setMsg] = useState('')
+  const [expanded, setExpanded] = useState(false)
+  const [mode, setMode] = useState<Mode>('login')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [recoveryCode, setRecoveryCode] = useState('')
+  const [issuedCode, setIssuedCode] = useState('')
+  const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
-  const [expanded, setExpanded] = useState(() => {
-    const params = new URLSearchParams(window.location.search)
-    return params.get('reset') === '1' || params.get('wechat') === 'failed'
-  })
-  const [mode, setMode] = useState<ViewMode>(() =>
-    new URLSearchParams(window.location.search).get('reset') === '1' ? 'update-password' : 'login',
-  )
-
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setMode('update-password')
-        setExpanded(true)
-      }
-    })
-    return () => data.subscription.unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    isPhoneAuthEnabled().then((enabled) => {
-      setPhoneEnabled(enabled)
-      if (enabled) setMethod('phone-otp')
-    })
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    fetch('/api/wechat-oauth?mode=status', { headers: { accept: 'application/json' } })
-      .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((availability: { h5: boolean; web: boolean }) => {
-        if (active) setWechatMode(getWechatLoginMode(navigator.userAgent, availability))
-      })
-      .catch(() => {
-        if (active) setWechatMode(null)
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
-  useEffect(() => {
-    const url = new URL(window.location.href)
-    const result = url.searchParams.get('wechat')
-    if (!result) return
-    if (result === 'failed') {
-      setMsg('微信登录暂时没有成功，请稍后重试')
-      setExpanded(true)
-    }
-    url.searchParams.delete('wechat')
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
-  }, [])
-
-  useEffect(() => {
-    if (countdown <= 0) return
-    const timer = window.setInterval(() => setCountdown((value) => Math.max(0, value - 1)), 1000)
-    return () => window.clearInterval(timer)
-  }, [countdown])
-
-  const resetFeedback = () => {
-    setMsg('')
-    setOtp('')
-    setOtpPurpose('login')
-  }
-
-  const switchMethod = (next: AuthMethod) => {
-    setMethod(next)
-    resetFeedback()
-  }
-
-  const startWechatLogin = () => {
-    if (!wechatMode) return
-    const returnTo = `${window.location.pathname}${window.location.search}`
-    window.location.href = `/api/wechat-oauth?mode=${wechatMode}&returnTo=${encodeURIComponent(returnTo)}`
-  }
-
-  const runBusy = async (action: () => Promise<void>) => {
+  const title = mode === 'register' ? '创建丸丸账号' : mode === 'recover' ? '找回密码' : '登录丸丸'
+  const switchMode = (next: Mode) => { setMode(next); setMessage(''); setPassword(''); setConfirmPassword(''); setRecoveryCode('') }
+  async function submit(event: React.FormEvent) {
+    event.preventDefault()
+    if (busy) return
+    setMessage('')
+    if (!/^[a-zA-Z0-9]{4,20}$/.test(username)) { setMessage('账号须为 4–20 位英文字母或数字'); return }
+    if ([...password].length < 8 || [...password].length > 64) { setMessage('密码须为 8–64 位'); return }
+    if (mode !== 'login' && password !== confirmPassword) { setMessage('两次密码不一致'); return }
     setBusy(true)
-    setMsg('')
     try {
-      await action()
-    } catch (error) {
-      setMsg(error instanceof Error ? friendlyAuthError(error.message) : '操作失败，请稍后再试')
-    } finally {
-      setBusy(false)
-    }
+      const result = await authenticate(mode, { username, password, ...(mode === 'recover' ? { recoveryCode } : {}) })
+      setPassword(''); setConfirmPassword(''); setRecoveryCode('')
+      if (result.recoveryCode) setIssuedCode(result.recoveryCode)
+      else setExpanded(false)
+      if (mode === 'recover') setMessage('密码已重置，旧会话已退出。请保存新的恢复码，再重新登录。')
+    } catch (error) { setMessage((error as Error).message) }
+    finally { setBusy(false) }
   }
-
-  const requirePhone = () => {
-    const normalized = normalizeMainlandPhone(phone)
-    if (!normalized) setMsg('请输入正确的中国大陆手机号')
-    return normalized
+  async function signOut() {
+    setBusy(true); setMessage('')
+    try { await logout() } catch (error) { setMessage((error as Error).message) }
+    finally { setBusy(false) }
   }
+  if (session && !issuedCode) return <div className="account-signed">
+    <span className="account-label">已登录 · {session.user.username}</span>
+    <button onClick={signOut} disabled={busy}>退出</button>
+    {message && <span role="alert">{message}</span>}
+  </div>
 
-  const sendOtp = async (purpose: OtpPurpose = 'login') => {
-    const normalized = requirePhone()
-    if (!normalized || countdown > 0) return
-    await runBusy(async () => {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: normalized,
-        options: { shouldCreateUser: purpose !== 'reset-password' },
-      })
-      if (error) throw error
-      setOtpPurpose(purpose)
-      setOtp('')
-      setCountdown(60)
-      setMsg(purpose === 'reset-password' ? '验证码已发送，验证后可设置新密码' : '验证码已发送，请查看短信')
-    })
-  }
-
-  const verifyOtp = async () => {
-    const normalized = requirePhone()
-    if (!normalized) return
-    if (!/^\d{6}$/.test(otp)) {
-      setMsg('请输入 6 位短信验证码')
-      return
-    }
-    await runBusy(async () => {
-      const { error } = await supabase.auth.verifyOtp({ phone: normalized, token: otp, type: 'sms' })
-      if (error) throw error
-      setOtp('')
-      if (otpPurpose === 'reset-password') {
-        setPw('')
-        setConfirmPw('')
-        setMode('update-password')
-        setMsg('身份验证成功，请设置新密码')
-      } else {
-        setMsg(otpPurpose === 'register-password' ? '手机号验证成功，注册完成' : '登录成功')
-      }
-    })
-  }
-
-  const runPasswordAuth = async (kind: 'in' | 'up') => {
-    if (pw.length < 6) {
-      setMsg('密码至少需要 6 位')
-      return
-    }
-    await runBusy(async () => {
-      if (method === 'email') {
-        if (!email.trim()) throw new Error('请填写邮箱')
-        const result = kind === 'in'
-          ? await supabase.auth.signInWithPassword({ email: email.trim(), password: pw })
-          : await supabase.auth.signUp({ email: email.trim(), password: pw })
-        if (result.error) throw result.error
-        setMsg(kind === 'up' ? '注册成功，请按邮件提示完成验证' : '登录成功')
-        return
-      }
-
-      const normalized = requirePhone()
-      if (!normalized) return
-      const result = kind === 'in'
-        ? await supabase.auth.signInWithPassword({ phone: normalized, password: pw })
-        : await supabase.auth.signUp({ phone: normalized, password: pw })
-      if (result.error) throw result.error
-      if (kind === 'up' && !result.data.session) {
-        setOtpPurpose('register-password')
-        setCountdown(60)
-        setMsg('注册验证码已发送，请完成手机号验证')
-      } else {
-        setMsg(kind === 'up' ? '注册并登录成功' : '登录成功')
-      }
-    })
-  }
-
-  const requestEmailReset = async () => {
-    if (!email.trim()) {
-      setMsg('请先填写注册邮箱')
-      return
-    }
-    await runBusy(async () => {
-      const redirectTo = `${window.location.origin}/?reset=1`
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
-      if (error) throw error
-      setMsg('重置邮件已发送，请检查收件箱和垃圾邮件')
-    })
-  }
-
-  const updatePassword = async () => {
-    if (pw.length < 6) {
-      setMsg('新密码至少需要 6 位')
-      return
-    }
-    if (pw !== confirmPw) {
-      setMsg('两次输入的密码不一致')
-      return
-    }
-    await runBusy(async () => {
-      const { error } = await supabase.auth.updateUser({ password: pw })
-      if (error) throw error
-      window.history.replaceState({}, '', window.location.pathname)
-      setPw('')
-      setConfirmPw('')
-      setMsg('密码已更新，可以继续使用丸丸了')
-      setMode('login')
-    })
-  }
-
-  if (session && mode !== 'update-password') {
-    return (
-      <div className="account-signed">
-        <span className="account-label">已登录 · {maskAccount(session.user.phone, session.user.email)}</span>
-        <button onClick={() => supabase.auth.signOut()} title="退出当前账号">
-          退出
-        </button>
+  return <div className="account-control">
+    <button className="account-trigger" onClick={() => setExpanded(value => !value)} aria-expanded={expanded || !!issuedCode}>登录 / 注册</button>
+    {(expanded || issuedCode) && <div className="auth-popover">
+      <div className="auth-panel-head">
+        <div><div className="section-eyebrow">WANWAN ACCOUNT</div><div className="auth-panel-title font-serif">{issuedCode ? '请保存恢复码' : title}</div></div>
+        {!issuedCode && <button className="icon-close" onClick={() => setExpanded(false)} aria-label="关闭账户面板">×</button>}
       </div>
-    )
-  }
-
-  const panel = (content: React.ReactNode, title = '登录丸丸') => (
-    <div className="account-control">
-      <button className="account-trigger" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
-        {mode === 'update-password' ? '设置密码' : '登录 / 注册'}
-      </button>
-      {expanded && (
-        <div className="auth-popover">
-          <div className="auth-panel-head">
-            <div>
-              <div className="section-eyebrow">WANWAN ACCOUNT</div>
-              <div className="auth-panel-title font-serif">{title}</div>
-            </div>
-            <button className="icon-close" onClick={() => setExpanded(false)} title="关闭账户面板" aria-label="关闭账户面板">×</button>
-          </div>
-          {content}
-        </div>
-      )}
-    </div>
-  )
-
-  if (mode === 'update-password') {
-    return panel(
-      <div>
-        <div className="auth-helper">设置一个新的登录密码</div>
+      {issuedCode ? <div>
+        <p className="auth-helper">恢复码只展示这一次。忘记密码时可用它重置；密码和恢复码都丢失，将无法自助找回。请妥善保存，不要告诉他人。</p>
+        <textarea aria-label="新恢复码" readOnly value={issuedCode} className="auth-input auth-recovery-code" onFocus={event => event.target.select()} />
+        {message && <p role="status">{message}</p>}
+        <button className="auth-primary-button" onClick={() => { setIssuedCode(''); setExpanded(false); switchMode('login') }}>我已保存恢复码</button>
+      </div> : <form onSubmit={submit}>
+        <p className="auth-helper">{mode === 'register' ? '给旅途留一个专属账号。' : mode === 'recover' ? '用保存的恢复码，设置一个新密码。' : '欢迎回来，继续你的旅程。'}</p>
         <div className="auth-fields">
-          <input value={pw} onChange={(event) => setPw(event.target.value)} type="password" autoComplete="new-password" placeholder="新密码（至少 6 位）" style={underline} />
-          <input value={confirmPw} onChange={(event) => setConfirmPw(event.target.value)} type="password" autoComplete="new-password" placeholder="再输入一次" style={underline} />
+          <label className="auth-field"><span>账号</span><input aria-label="账号" placeholder="字母或数字，4–20 位" aria-describedby="account-name-hint" value={username} onChange={e => setUsername(e.target.value)} pattern="[A-Za-z0-9]{4,20}" minLength={4} maxLength={20} autoCapitalize="none" autoComplete="username" spellCheck={false} required className="auth-input" /><small id="account-name-hint">不区分大小写</small></label>
+          <label className="auth-field"><span>{mode === 'recover' ? '新密码' : '密码'}</span><input aria-label={mode === 'recover' ? '新密码' : '密码'} placeholder="8–64 位，可包含符号" type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required className="auth-input" /></label>
+          {mode !== 'login' && <label className="auth-field"><span>确认密码</span><input aria-label="确认密码" placeholder="再次输入密码" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" required className="auth-input" /></label>}
+          {mode === 'recover' && <label className="auth-field"><span>恢复码</span><input aria-label="恢复码" placeholder="注册时保存的恢复码" value={recoveryCode} onChange={e => setRecoveryCode(e.target.value.trim())} pattern="[a-fA-F0-9]{64}" maxLength={64} autoComplete="off" required className="auth-input" /></label>}
         </div>
         <div className="auth-actions">
-          <button onClick={updatePassword} disabled={busy} className="font-serif disabled:opacity-60" style={primaryButton}>更新密码</button>
-          {msg && <span className="auth-message">{msg}</span>}
+          <button disabled={busy} className="auth-primary-button">{busy ? '处理中…' : mode === 'register' ? '创建账号' : mode === 'recover' ? '重置密码' : '登录'}</button>
+          <button type="button" disabled={busy} className="auth-text-button" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? '注册' : '返回登录'}</button>
+          {mode === 'login' && <button type="button" disabled={busy} className="auth-link-button" onClick={() => switchMode('recover')}>忘记密码</button>}
         </div>
-      </div>,
-      '设置新密码',
-    )
-  }
-
-  if (mode === 'email-reset') {
-    return panel(
-      <div>
-        <div className="auth-helper">输入注册邮箱，丸丸会发一封重置邮件</div>
-        <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="注册邮箱" style={{ ...underline, width: '100%' }} />
-        <div className="auth-actions">
-          <button onClick={requestEmailReset} disabled={busy} className="font-serif disabled:opacity-60" style={primaryButton}>发送重置邮件</button>
-          <button onClick={() => { setMode('login'); setMsg('') }} className="auth-text-button">返回登录</button>
-          {msg && <span className="auth-message">{msg}</span>}
-        </div>
-      </div>,
-      '找回密码',
-    )
-  }
-
-  const showOtpInput = method === 'phone-otp' || otpPurpose === 'register-password' || otpPurpose === 'reset-password'
-
-  return panel(
-    <div>
-      <div className="auth-helper">登录后行程存到云端 · 跨设备可见</div>
-      {wechatMode && (
-        <>
-          <button className="auth-wechat-button" onClick={startWechatLogin}>
-            {wechatMode === 'h5' ? '微信登录' : '微信扫码登录'}
-          </button>
-          <div className="auth-divider"><span>或</span></div>
-        </>
-      )}
-      <div className="auth-tabs" role="tablist" aria-label="登录方式">
-        {([
-          ['phone-otp', '手机验证码'],
-          ['phone-password', '手机密码'],
-          ['email', '邮箱'],
-        ] as Array<[AuthMethod, string]>).map(([value, label]) => (
-          <button
-            key={value}
-            role="tab"
-            aria-selected={method === value}
-            aria-disabled={value !== 'email' && !phoneEnabled}
-            disabled={value !== 'email' && !phoneEnabled}
-            className={method === value ? 'active' : ''}
-            onClick={() => switchMethod(value)}
-            title={value !== 'email' && !phoneEnabled ? '短信服务配置完成后开放' : undefined}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {!phoneEnabled && <div className="auth-availability">手机登录待短信服务审核通过后开放</div>}
-
-      <div className="auth-fields">
-        {method === 'email' ? (
-          <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="邮箱" style={underline} />
-        ) : (
-          <div className="auth-phone-field">
-            <span>+86</span>
-            <input value={phone} onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 11))} type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="手机号" style={underline} />
-          </div>
-        )}
-        {method !== 'phone-otp' && otpPurpose === 'login' && (
-          <input value={pw} onChange={(event) => setPw(event.target.value)} type="password" autoComplete={method === 'email' ? 'current-password' : 'current-password'} placeholder="密码（至少 6 位）" style={underline} />
-        )}
-        {showOtpInput && (
-          <div className="auth-code-field">
-            <input value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="6 位验证码" style={underline} />
-            <button onClick={() => sendOtp(otpPurpose)} disabled={busy || countdown > 0} className="auth-code-button">
-              {countdown > 0 ? `${countdown}s` : '获取验证码'}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="auth-actions">
-        {showOtpInput ? (
-          <button onClick={verifyOtp} disabled={busy} className="font-serif disabled:opacity-60" style={primaryButton}>验证并登录</button>
-        ) : (
-          <>
-            <button onClick={() => runPasswordAuth('in')} disabled={busy} className="font-serif disabled:opacity-60" style={primaryButton}>登录</button>
-            <button onClick={() => runPasswordAuth('up')} disabled={busy} className="font-serif disabled:opacity-60 auth-text-button">注册</button>
-          </>
-        )}
-        {method === 'email' && (
-          <button onClick={() => { setMode('email-reset'); setMsg(''); setPw('') }} className="auth-link-button">忘记密码</button>
-        )}
-        {method === 'phone-password' && otpPurpose === 'login' && (
-          <button onClick={() => sendOtp('reset-password')} disabled={busy || countdown > 0} className="auth-link-button">忘记密码</button>
-        )}
-        {msg && <span className="auth-message">{msg}</span>}
-      </div>
-    </div>,
-  )
+        {message && <p className="auth-message" role="alert">{message}</p>}
+      </form>}
+    </div>}
+  </div>
 }

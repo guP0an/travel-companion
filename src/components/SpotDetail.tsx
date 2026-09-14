@@ -100,10 +100,7 @@ export default function SpotDetail({ name, city, onClose, onSaved }: { name: str
       setMsg(wasNew ? `打卡成功！这是你打卡的第 ${n} 个地方${t ? ` · ${t}` : ''}` : '已更新')
       onSaved?.()
     } catch (e) {
-      const m = (e as Error).message
-      if (m.includes('checkins') || m.includes('schema cache')) setMsg('打卡功能还没启用：先在 Supabase 跑 checkins 建表 SQL')
-      else if (m.toLowerCase().includes('bucket') || m.includes('checkin-photos')) setMsg('照片云存储还没启用：先在 Supabase 建 checkin-photos 存储桶（见 supabase/storage.sql）')
-      else setMsg(m)
+      setMsg((e as Error).message)
     } finally {
       setBusy(false)
     }
