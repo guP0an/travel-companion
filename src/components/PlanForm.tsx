@@ -226,7 +226,7 @@ export default function PlanForm({
     timing.departureDate = departure || timing.departureDate
     setAskDeparture(false)
     setTimingQuestion('')
-    setTimingSummary(timing.tentative ? '结束日期未定 · 先安排前 3 天，之后可以继续补充' : `${timing.departureDate ? timing.departureDate + ' 出发 · ' : ''}共 ${timing.days} 天`)
+    setTimingSummary(timing.tentative ? '结束日期未定 · 先安排前 3 天，之后可以继续补充' : `${timing.departureDate ? timing.departureDate + ' 出发 · ' : ''}${timing.durationRange ? '按天数区间上限先安排' : '共'} ${timing.days} 天`)
     setBusy(true)
     setErr('')
     try {
